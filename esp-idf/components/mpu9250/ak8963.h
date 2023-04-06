@@ -20,7 +20,7 @@
 #define __AK8963_H
 
 #include "freertos/FreeRTOS.h"
-#include "driver/i2c.h"
+#include "../../../../esp-idf/components/driver/i2c/include/driver/i2c.h"
 
 #define AK8963_ADDRESS (0x0c)
 #define AK8963_WHO_AM_I (0x00) // should return 0x48

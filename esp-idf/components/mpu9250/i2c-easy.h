@@ -25,7 +25,8 @@
 
 #include "esp_log.h"
 #include "esp_err.h"
-#include "driver/i2c.h"
+// #include "driver/i2c.h"
+#include "../../../../esp-idf/components/driver/i2c/include/driver/i2c.h"
 
 esp_err_t i2c_master_init(uint8_t i2c_num, uint8_t gpio_sda, uint8_t gpio_scl);
 

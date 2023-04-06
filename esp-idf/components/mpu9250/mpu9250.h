@@ -20,7 +20,7 @@
 #define __MPU9250_H
 
 #include "freertos/FreeRTOS.h"
-#include "driver/i2c.h"
+#include "../../../../esp-idf/components/driver/i2c/include/driver/i2c.h"
 
 /*****************/
 /** MPU9250 MAP **/
