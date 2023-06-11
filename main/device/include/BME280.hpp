@@ -183,18 +183,18 @@ public:
     std::vector<baro_reading_t> read();
     void printReadings(const std::vector<baro_reading_t>& readings);
     status checkOK() override;
-    status init(idf::I2CMaster);
+    status init();
     uint8_t begin(uint8_t i2cAddress);
     uint8_t readId(void);
     void stop() override;
 
 protected: 
-    void watchdog_task(void *parameters) override;
-    void watchdog_callback(TimerHandle_t xtimer) override;
+    // void watchdog_task(void *parameters) override;
+    // void watchdog_callback(TimerHandle_t xtimer) override;
 
 private:
-    std::shared_ptr<idf::I2CAddress> addr;
-    std::shared_ptr<idf::I2CMaster> i2c;
+    // std::shared_ptr<idf::I2CAddress> addr;
+    // std::shared_ptr<idf::I2CMaster> i2c;
     uint8_t _i2c_address; // address 
     void busWrite(uint8_t *p_data, uint8_t data_size, uint8_t repeated_start);
     void busRead(uint8_t *p_data, uint8_t data_size);

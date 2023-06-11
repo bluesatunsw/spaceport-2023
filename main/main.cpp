@@ -23,8 +23,9 @@
 System dm;
 
 // idf entrypoint
-extern "C" void app_main()
+extern "C" int main()
 {
+    stdio_init_all();
     printf("Initialising Bluesat Rocket Telemetry system...\n");
     obc_main();
 }
@@ -69,10 +70,22 @@ void obc_main(void) {
  *             all logging output will be outputted on serial.
 */
 void mission(bool test) {
-    
-    
+    dm.await_arm();
+    printf("Arming sequence complete\n");
     for (;;) {
-        // Placeholder
+        // Adapt to flight stage
+        if (dm.flight_stage == STAGE_COAST) {
+
+        }
+        else if (dm.flight_stage == STAGE_POWERED_ASCENT) {
+        
+        }
+        else if (dm.flight_stage == STAGE_DESCENT) {
+
+        }
+        else if (dm.flight_stage == STAGE_PAD) {
+            dm.await_launch();
+        }
     }
 }
 
@@ -111,7 +124,7 @@ void diagnostic(void) {
 
         // Print all values in one line
         // FIXME: Uncomment this below 
-        printf("%" PRIu64 " ", curr_time);
+        // printf("%" PRIu64 " ", curr_time);
         // for (int i = 0; i < accel_readings.size(); i++) {
         //     printf("| acc%d    x=[%8u] y=[%8u] z=[%8u] |\n",i, accel_readings[i].acc_x, accel_readings[i].acc_y, accel_readings[i].acc_z);
         // }

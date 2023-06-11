@@ -55,13 +55,3 @@ void ESPFlash::stop()
 {
 
 }
-
-void ESPFlash::watchdog_task(void *parameters)
-{
-
-}
-
-void ESPFlash::watchdog_callback(TimerHandle_t xtimer)
-{
-
-}

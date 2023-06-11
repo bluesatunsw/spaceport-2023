@@ -6,9 +6,7 @@
 #ifndef ICM20948_H
 #define ICM20948_H
 
-
 #include "Device.hpp"
-#include <i2c_cxx.hpp>
 
 class ICM20948 : public Device {
 public:
@@ -17,7 +15,7 @@ public:
     static const uint8_t BASE_ADDRESS = 0x69;
 
     std::vector<imu_reading_t> read();
-    status init(std::shared_ptr<idf::I2CMaster>, bool alt_address);
+    status init(bool alt_address);
 
     // Device methods
     status checkOK() override;
@@ -27,12 +25,12 @@ public:
     void update(void);
 
 protected: 
-    void watchdog_task(void *parameters) override;
-    void watchdog_callback(TimerHandle_t xtimer) override;
+    // void watchdog_task(void *parameters) override;
+    // void watchdog_callback(TimerHandle_t xtimer) override;
 
 private:
-    std::unique_ptr<idf::I2CAddress> addr;
-    std::shared_ptr<idf::I2CMaster> i2c;
+    // std::unique_ptr<idf::I2CAddress> addr;
+    // std::shared_ptr<idf::I2CMaster> i2c;
 
     std::vector<imu_reading_t> measurements;
 };

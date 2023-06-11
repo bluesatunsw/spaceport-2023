@@ -1,13 +1,13 @@
-// ICM20948.cpp
-// Implementation for the ICM20948 9-axis IMU
-// [name] [github handle]
-// 05/2023
+// // ICM20948.cpp
+// // Implementation for the ICM20948 9-axis IMU
+// // [name] [github handle]
+// // 05/2023
 
 #include "ICM20948.hpp"
-#include "i2c_cxx.hpp"
-#include "types.hpp"
-#include <memory>
-#include <sys/_stdint.h>
+
+// #include "types.hpp"
+// #include <memory>
+// #include <sys/_stdint.h>
 
 ICM20948::ICM20948() {
     // Placeholder
@@ -56,82 +56,36 @@ status ICM20948::checkOK() {
  * 
  * @return status: device status
 */
-status ICM20948::init(std::shared_ptr<idf::I2CMaster> i2c, bool alt_address) {
-    this->addr = std::make_unique<idf::I2CAddress>(BASE_ADDRESS & alt_address);
-    this->i2c = i2c;
-
+status ICM20948::init(bool alt_address) {
     // check if device is available
-    try {
-      this->i2c->sync_read(*this->addr, 0); // send nothing
-                                            // should still recieve ACK
-    } catch (idf::I2CException& e) {
-      // something went wrong with the i2c communication
-      return STATUS_FAILED;
-    }
-
-    // Setup user settings.
-    try {
-      // Do a full reset.
-      const std::vector<uint8_t> data {USER_CTRL, 0x00};
-      this->i2c->sync_write(*this->addr, data);
-    } catch (idf::I2CException& e) {
-      return STATUS_FAILED;
-    }
-
-    // Setup interrupts.
-    try {
-      // enable the raw data ready interrupt
-      const std::vector<uint8_t> data {INT_ENABLE + 3, 0x01};
-      this->i2c->sync_write(*this->addr, data);
-    } catch (idf::I2CException& e) {
-      return STATUS_FAILED;
-    }
-
     return STATUS_OK;
 }
 
 #define SENS_START 0x2D // ACCEL_XOUT_H on datasheet
 #define SENS_LEN   14   // number of sensor registers
 
-void ICM20948::update() {
-    try {
-      const std::vector<uint8_t> data {SENS_START};
-      auto data_vec = this->i2c->sync_transfer(*this->addr, data, SENS_LEN);
+// void ICM20948::update() {
+//     try {
+//       const std::vector<uint8_t> data {SENS_START};
+//       auto data_vec = this->i2c->sync_transfer(*this->addr, data, SENS_LEN);
 
-      typedef union {
-        imu_reading_t r;
-        uint8_t d[sizeof(imu_reading_t)];
-      } imu_reading_ser_t;
+//       typedef union {
+//         imu_reading_t r;
+//         uint8_t d[sizeof(imu_reading_t)];
+//       } imu_reading_ser_t;
 
-      // convert byte stream to actual value
-      imu_reading_ser_t reading;
-      *reading.d = *data_vec.data(); 
-      measurements.push_back(reading.r);
+//       // convert byte stream to actual value
+//       imu_reading_ser_t reading;
+//       *reading.d = *data_vec.data(); 
+//       measurements.push_back(reading.r);
       
-      // i'm not sure how correct the above is. If the endian-ness matches and
-      // if the struct is packed correctly
-      // could easily change to the more direct assignment approach.
+//       // i'm not sure how correct the above is. If the endian-ness matches and
+//       // if the struct is packed correctly
+//       // could easily change to the more direct assignment approach.
 
-    } catch (idf::I2CException& e) {
-      this->alive = false;
-      return;
-    }
+//     } catch (idf::I2CException& e) {
+//       this->alive = false;
+//       return;
+//     }
 
-}
-
-// watchdog stuff
-
-void ICM20948::stop()
-{
-
-}
-
-void ICM20948::watchdog_task(void *parameters)
-{
-
-}
-
-void ICM20948::watchdog_callback(TimerHandle_t xtimer)
-{
-
-}
+// }

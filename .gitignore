@@ -46,3 +46,10 @@ CMakeFiles/
 build/
 managed_components/
 .cache/
+
+# rp2040 stuff
+*.map
+/elf2uf2/
+/generated/
+/pico-sdk/
+/pioasm/

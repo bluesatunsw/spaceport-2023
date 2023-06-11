@@ -8,7 +8,7 @@
 
 #include <sys/time.h>
 #include "Device.hpp"
-#include "i2c_cxx.hpp"
+
 
 #define DS3231_I2C_ADDR 0x68
 
@@ -20,16 +20,16 @@ public:
     // Device methods
     struct timeval getTime();
     status checkOK() override;
-    status init(idf::I2CMaster);
+    status init();
 
     void stop() override;
 
 protected: 
-    void watchdog_task(void *parameters) override;
-    void watchdog_callback(TimerHandle_t xtimer) override;
+//     void watchdog_task(void *parameters) override;
+//     void watchdog_callback(TimerHandle_t xtimer) override;
 
-private:
-    std::shared_ptr<idf::I2CAddress> addr;
-    std::shared_ptr<idf::I2CMaster> i2c;
+// private:
+//     std::shared_ptr<idf::I2CAddress> addr;
+//     std::shared_ptr<idf::I2CMaster> i2c;
 };
 #endif

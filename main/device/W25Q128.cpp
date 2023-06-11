@@ -41,13 +41,3 @@ void W25Q128::stop()
 {
 
 }
-
-void W25Q128::watchdog_task(void *parameters)
-{
-
-}
-
-void W25Q128::watchdog_callback(TimerHandle_t xtimer)
-{
-
-}

@@ -44,23 +44,13 @@ status H3LIS100DLTR::checkOK() {
  * 
  * @return status: device status
 */
-status H3LIS100DLTR::init(idf::I2CMaster i2c) {
+status H3LIS100DLTR::init() {
     // Placeholder
     return STATUS_OK;
 }
 
 
 void H3LIS100DLTR::stop()
-{
-
-}
-
-void H3LIS100DLTR::watchdog_task(void *parameters)
-{
-
-}
-
-void H3LIS100DLTR::watchdog_callback(TimerHandle_t xtimer)
 {
 
 }
