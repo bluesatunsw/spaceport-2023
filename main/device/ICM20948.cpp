@@ -1,32 +1,81 @@
-// // ICM20948.cpp
-// // Implementation for the ICM20948 9-axis IMU
-// // [name] [github handle]
-// // 05/2023
+// ICM20948.cpp
+// Implementation for the ICM20948 9-axis IMU
+// Matt Rossouw (omeh-a)
+// 06/2023
 
 #include "ICM20948.hpp"
 
-// #include "types.hpp"
-// #include <memory>
-// #include <sys/_stdint.h>
+static i2c_inst_t *curr_i2cbus; // this upsets me greatly
 
+// C interface for ICM driver from Stephen Murphy
+static int8_t usr_write(const uint8_t addr, const uint8_t *data, const uint32_t len) {
+    icm20948_return_code_t ret = ICM20948_RET_OK;
+    uint8_t reg = addr;
+
+    // Write the address
+    i2c_write_blocking(curr_i2cbus, ICM_I2C_ADDR, &reg, 1, true);
+    
+    // Write the data from the provided data buffer
+    int err = i2c_write_blocking(curr_i2cbus, ICM_I2C_ADDR, data, len, false);
+    if (err == PICO_ERROR_GENERIC) return ICM20948_RET_GEN_FAIL;
+    return ret;
+}
+
+static int8_t usr_read(const uint8_t addr, uint8_t *data, const uint32_t len) {
+    icm20948_return_code_t ret = ICM20948_RET_OK;
+
+    uint8_t reg = addr;
+
+    // Write the address
+    i2c_write_blocking(curr_i2cbus, ICM_I2C_ADDR, &reg, 1, true);
+
+    // Read out the data, placing the result in the data buffer
+    int err = i2c_read_blocking(curr_i2cbus, ICM_I2C_ADDR, data, len, false);
+
+    return ret;
+}
+
+static void usr_delay_us(uint32_t period) {
+    sleep_us(period);
+}
+
+/**
+ * Default constructor for ICM20948
+*/
 ICM20948::ICM20948() {
-    // Placeholder
+    
 }
 
 /**
  * Take a reading from this device.
- * @return A vector of readings from this device of type [TYPE]
+ * @return A vector of readings from this device of type imu_reading_t
 */
 std::vector<imu_reading_t> ICM20948::read() {
-    // Placeholder
+    std::vector<imu_reading_t> readings;
+    curr_i2cbus = i2cbus;   // reassign static i2cbus variable to fool
+                            // the horrible function pointer interface.
 
-    // imu_reading_t placeholder[] = {0};
-    // std::vector<imu_reading_t> readings = std::vector<imu_reading_t>(placeholder, placeholder + sizeof(imu_reading_t) / sizeof(placeholder[0]));
+    // API read structs
+    icm20948_accel_t accel;
+    icm20948_gyro_t gyro;
 
-    // the swap is so that the internal measuremnets are earased, and are handed to the caller
-    auto readings = std::vector<imu_reading_t>{};
-    measurements.swap(readings);
+    // Call API read function
+    icm20948_return_code_t ret = icm20948_getAccelData(&accel);
+    if (ret != ICM20948_RET_OK) return readings;
+    
+    ret = icm20948_getGyroData(&gyro);
+    if (ret != ICM20948_RET_OK) return readings;
 
+    // Unpack the readings into an `imu_reading_t` struct
+    imu_reading_t reading;
+    reading.acc_x = accel.x;
+    reading.acc_y = accel.y;
+    reading.acc_z = accel.z;
+    reading.gyr_x = gyro.x;
+    reading.gyr_y = gyro.y;
+    reading.gyr_z = gyro.z;
+
+    
     return readings;
 }
 
@@ -57,35 +106,29 @@ status ICM20948::checkOK() {
  * @return status: device status
 */
 status ICM20948::init(bool alt_address) {
-    // check if device is available
+    if (alt_address) i2cbus = i2c1;
+    else i2cbus = i2c0;
+
+    curr_i2cbus = i2cbus;
+    // Invoke API init function
+    icm20948_return_code_t ret = icm20948_init(usr_read, usr_write, usr_delay_us);
+    
+    // Configure the device
+    if( ret == ICM20948_RET_OK ) {
+        icm20948_settings_t settings;
+        // Enable the Gyro
+        settings.gyro.en = ICM20948_MOD_ENABLED;
+        // Select the +-20000dps range
+        settings.gyro.fs = ICM20948_GYRO_FS_SEL_2000DPS;
+        // Enable the Accel
+        settings.accel.en = ICM20948_MOD_ENABLED;
+        // Select the +-2G range
+        settings.accel.fs = ICM20948_ACCEL_FS_SEL_16G;
+        ret = icm20948_applySettings(&settings);
+    } else {
+        return STATUS_FAILED;
+    } 
+
     return STATUS_OK;
 }
 
-#define SENS_START 0x2D // ACCEL_XOUT_H on datasheet
-#define SENS_LEN   14   // number of sensor registers
-
-// void ICM20948::update() {
-//     try {
-//       const std::vector<uint8_t> data {SENS_START};
-//       auto data_vec = this->i2c->sync_transfer(*this->addr, data, SENS_LEN);
-
-//       typedef union {
-//         imu_reading_t r;
-//         uint8_t d[sizeof(imu_reading_t)];
-//       } imu_reading_ser_t;
-
-//       // convert byte stream to actual value
-//       imu_reading_ser_t reading;
-//       *reading.d = *data_vec.data(); 
-//       measurements.push_back(reading.r);
-      
-//       // i'm not sure how correct the above is. If the endian-ness matches and
-//       // if the struct is packed correctly
-//       // could easily change to the more direct assignment approach.
-
-//     } catch (idf::I2CException& e) {
-//       this->alive = false;
-//       return;
-//     }
-
-// }

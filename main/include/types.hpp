@@ -22,10 +22,6 @@ typedef struct {
     uint16_t gyr_x;
     uint16_t gyr_y;
     uint16_t gyr_z;
-    uint16_t mag_x;
-    uint16_t mag_y;
-    uint16_t mag_z;
-    uint16_t temp;
 } imu_reading_t;
 
 typedef uint32_t rtc_reading_t;

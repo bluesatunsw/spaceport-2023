@@ -14,6 +14,7 @@
 #include <memory>
 #include <pico/stdlib.h>
 #include "hardware/i2c.h"
+#include "hardware/spi.h"
 
 // Our dependencies
 #include "types.hpp"
