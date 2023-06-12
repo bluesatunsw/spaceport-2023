@@ -36,10 +36,6 @@ public:
     // virtual status init(idf::I2CMaster) = 0;
     
 
-
-    // called to stop freeRTOS tasks
-    virtual void stop() = 0;
-
     // FYI: ignore the "=0" after these methods. It just forced them to be purely virtual.
 
 protected:

@@ -19,7 +19,6 @@ public:
     status init();
     std::vector<accel_reading_t> read();
 
-    void stop() override;
 
 protected: 
     // void watchdog_task(void *parameters) override;

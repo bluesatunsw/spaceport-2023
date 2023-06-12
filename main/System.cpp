@@ -13,15 +13,8 @@
  * a singleton class but I think nobody is going to go crazy with this.
  */
 System::System() {
-    // Initialise GPIO pins for system control
-    // gpio_config_t io_conf;
-    // io_conf.intr_type = GPIO_INTR_DISABLE;
-    // io_conf.mode = GPIO_MODE_INPUT;
-    // io_conf.pin_bit_mask = (1ULL<<PIN_OFFLOAD) | (1ULL<<PIN_TESTMODE);
-    // io_conf.pull_down_en = GPIO_PULLDOWN_DISABLE;
-    // io_conf.pull_up_en = GPIO_PULLUP_ENABLE;
-    // gpio_config(&io_conf);
     
+
     // // Check jumpers to decide system mode.
     // // This line of code is potentially nefarious because I'm not too sure
     // // how C++ handles enum types
@@ -61,19 +54,7 @@ System::System() {
     log_internal(std::string("Core initialisation complete.\n"), LOG_INFO);
 }
 
-/**
- * Initialises the I2c bus for devices to use.
- */
-void System::i2c_init() {
-    // Placeholder
 
-    // i2c = std::make_shared<idf::I2CMaster>(
-    //     idf::I2CNumber::I2C0(), // I2C1() for second bus
-    //     PIN_SCL, // the scl gpio pin
-    //     PIN_SDA, // the sda gpio pin
-    //     idf::Frequency::KHz(40)
-    // );
-}
 
 /**
  * Attempts to initialise all connected sensors.
@@ -82,7 +63,37 @@ void System::i2c_init() {
  * @note System::i2c_init must succeed before calling this.
  */
 void System::sensor_init() {
-    // Placeholder
+    // I2C devices
+    #ifdef I2C_ENABLE
+    // Initialise GPIO pins for system control
+    gpio_set_function(PIN_SCL0, GPIO_FUNC_I2C);
+    gpio_set_function(PIN_SDA0, GPIO_FUNC_I2C);
+    gpio_pull_up(PIN_SCL0);
+    gpio_pull_up(PIN_SDA0);
+    i2c_init(i2c0, 400000);
+    status err = baro0.init(false);
+    if (err == STATUS_FAILED) {
+        log_internal(std::string("Barometer 0 failed to initialise.\n"), LOG_WARNING);
+    }
+
+    baro0.checkOK();
+    #endif
+    #ifdef SPI_ENABLE
+    // Set up SPI bus
+    spi_init(spi_default, 500 * 1000);
+    gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);
+    gpio_set_function(PIN_SCK, GPIO_FUNC_SPI);
+    gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
+
+    // Chip select is active-low, so we'll initialise it to a driven-high state
+    gpio_init(PIN_CS);
+    gpio_set_dir(PIN_CS, GPIO_OUT);
+    gpio_put(PIN_CS, 1);
+
+    // Devices
+    
+
+    #endif
     // imu0.init(this->i2c, false);
     // imu1.init(this->i2c, true);
 }

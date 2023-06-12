@@ -48,9 +48,3 @@ status H3LIS100DLTR::init() {
     // Placeholder
     return STATUS_OK;
 }
-
-
-void H3LIS100DLTR::stop()
-{
-
-}

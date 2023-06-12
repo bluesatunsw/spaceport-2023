@@ -38,6 +38,7 @@ Normal mode: perpetual cycling of measurements and inactive periods.
 #define REG_PRESSURE_LSB _u(0xF8)
 #define REG_PRESSURE_MSB _u(0xF7)
 
+#define REG_WHOAMI      _u(0xD0)
 // calibration registers
 #define REG_DIG_T1_LSB _u(0x88)
 #define REG_DIG_T1_MSB _u(0x89)
@@ -94,10 +95,9 @@ public:
     // Device methods
     std::vector<baro_reading_t> read();
     status checkOK() override;
-    status init(bool i2c_bus) override;
+    status init(bool i2c_bus);
 
 private:
-    uint8_t _i2c_address; // address
     bme280_calib_param _calib_params;
     i2c_inst_t *i2cbus;
 
@@ -107,7 +107,7 @@ private:
     int32_t bme280_convert(int32_t temp, struct bme280_calib_param* params);
     int32_t bme280_convert_temp(int32_t temp, struct bme280_calib_param* params);
     int32_t bme280_convert_pressure(int32_t pressure, int32_t temp, struct bme280_calib_param* params);
-    void bme280_get_calib_params(struct bme280_calib_param* params);
+    status bme280_get_calib_params(struct bme280_calib_param* params);
     
 };
 

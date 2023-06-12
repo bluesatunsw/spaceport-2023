@@ -72,7 +72,7 @@ int32_t BME280::bme280_convert_pressure(int32_t pressure, int32_t temp, struct b
     return converted;
 }
 
-void BME280::bme280_get_calib_params(struct bme280_calib_param* params) {
+status BME280::bme280_get_calib_params(struct bme280_calib_param* params) {
     // raw temp and pressure values need to be calibrated according to
     // parameters generated during the manufacturing of the sensor
     // there are 3 temperature params, and 9 pressure params, each with a LSB
@@ -104,6 +104,12 @@ void BME280::bme280_get_calib_params(struct bme280_calib_param* params) {
     params->dig_p7 = (int16_t)(buf[19] << 8) | buf[18];
     params->dig_p8 = (int16_t)(buf[21] << 8) | buf[20];
     params->dig_p9 = (int16_t)(buf[23] << 8) | buf[22];
+}
+
+
+BME280::BME280() {
+    // constructor
+
 }
 
 /**
@@ -150,3 +156,24 @@ status BME280::init(bool i2c_bus) {
     return STATUS_OK;
 }
 
+std::vector<baro_reading_t> BME280::read() {
+
+}
+
+status BME280::checkOK() {
+    // Try read from WHOAMI register
+    uint8_t reg = REG_WHOAMI;
+    uint8_t response[1] = {0};
+
+    int err = i2c_write_blocking(i2cbus, BME_I2C_ADDR, &reg, 1, true);  // true to keep master control of bus
+    if (err == PICO_ERROR_GENERIC) {
+        return STATUS_FAILED;
+    }
+
+    err = i2c_read_blocking(i2cbus, BME_I2C_ADDR, response, 1, false);  // false, we're done reading
+    if (err == PICO_ERROR_GENERIC) {
+        return STATUS_FAILED;
+    }
+    printf("Read from WHOAMI: %d\n", response[0]);
+    return STATUS_OK;
+}

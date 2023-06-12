@@ -51,10 +51,12 @@ void obc_main(void) {
             // Diagnostic should never return, but just in case...
             return;
     }
-    // Initialise bus
-    dm.i2c_init();
-
     // Initialise sensors
+    sleep_ms(1000);
+    printf("About to initialise sensors!\n");
+    sleep_ms(1000);
+    printf("REALLY GOING TO\n");
+    sleep_ms(1000);
     dm.sensor_init();
 
 

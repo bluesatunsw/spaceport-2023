@@ -16,8 +16,6 @@ public:
     status checkOK() override;
     status init();
 
-    void stop() override;
-
 protected: 
     // void watchdog_task(void *parameters) override;
     // void watchdog_callback(TimerHandle_t xtimer) override;

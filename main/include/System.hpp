@@ -13,6 +13,7 @@
 #include <sys/time.h>
 #include <memory>
 #include <pico/stdlib.h>
+#include "hardware/i2c.h"
 
 // Our dependencies
 #include "types.hpp"
@@ -31,8 +32,12 @@
 // #define PIN_SCL idf::SCL_GPIO(22)
 // #define PIN_SDA idf::SDA_GPIO(21)
 
-// ### enums ###
+// ### config ###
+// #define I2C_ENABLE
+#define SPI_ENABLE
 
+
+// ### enums ###
 enum system_mode {
     MODE_NORMAL,
     MODE_OFFLOAD,
@@ -52,6 +57,12 @@ enum stage {
 #define ARM_DELAY_SECONDS 10 * 1
 #define POWERED_ASCENT_DURATION_MS 65 * 100 // 6.5 seconds
 #define BURNOUT_PAYLOAD_DELAY_MS 10 * 1000  
+#define PIN_SCL0 1
+#define PIN_SDA0 0
+#define PIN_CS 15 // Placeholder
+#define PIN_SCK 14 // Placeholder
+#define PIN_MISO 12 // Placeholder
+#define PIN_MOSI 13 // Placeholder
 
 
 // ### Class prototype ### 
@@ -73,7 +84,6 @@ public:
     void log_init(void);
     void log_msg(std::string msg, log_type type);
     void offload(void);
-    void i2c_init(void);
     void sensor_init(void);
     void sensor_update(void); // block until all sensors have data
 
@@ -91,8 +101,8 @@ private:
     W25Q128 flash;
     H3LIS100DLTR acc0;
     H3LIS100DLTR acc1;
-    // BME280 baro0;
-    // BME280 baro1;
+    BME280 baro0;
+    BME280 baro1;
     // ICM20948 imu0;
     // ICM20948 imu1;
 

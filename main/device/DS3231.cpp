@@ -44,11 +44,3 @@ status DS3231::init() {
     // Placeholder
     return STATUS_OK;
 }
-
-
-
-void DS3231::stop()
-{
-
-}
-

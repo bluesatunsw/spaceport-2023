@@ -22,4 +22,4 @@ target_include_directories(obc
 pico_enable_stdio_usb(obc 1)
 pico_enable_stdio_uart(obc 1)
 pico_add_extra_outputs(obc)
-target_link_libraries(obc pico_stdlib hardware_i2c)
+target_link_libraries(obc pico_stdlib hardware_i2c hardware_spi)

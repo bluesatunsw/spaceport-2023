@@ -37,7 +37,4 @@ status W25Q128::init() {
     return STATUS_OK;
 }
 
-void W25Q128::stop()
-{
 
-}

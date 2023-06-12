@@ -19,9 +19,6 @@ public:
 
     // Device methods
     status checkOK() override;
-
-    void stop() override;
-
     void update(void);
 
 protected: 
