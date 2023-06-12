@@ -53,3 +53,9 @@ managed_components/
 /generated/
 /pico-sdk/
 /pioasm/
+Makefile
+*.bin
+*.dis
+*.elf
+*.hex
+*.uf2
