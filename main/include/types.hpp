@@ -24,7 +24,15 @@ typedef struct {
     uint16_t gyr_z;
 } imu_reading_t;
 
-typedef uint32_t rtc_reading_t;
+typedef struct {
+    uint8_t seconds;
+    uint8_t minutes;
+    uint8_t hours;
+    uint8_t day; // of week
+    uint8_t date; // of month
+    uint8_t month;
+    uint8_t year;
+} rtc_reading_t;
 
 typedef struct {
     uint16_t humidity;
