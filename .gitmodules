@@ -1,6 +1,6 @@
 [submodule "icm20948"]
 	path = icm20948
 	url = https://github.com/stephendpmurphy/icm20948
-[submodule "littlefs"]
-	path = littlefs
-	url = git@github.com:littlefs-project/littlefs.git
+[submodule "littlefs-lib"]
+	path = littlefs-lib
+	url = git@github.com:lurk101/littlefs-lib.git
