@@ -27,7 +27,6 @@ typedef struct {
 typedef uint32_t rtc_reading_t;
 
 typedef struct {
-    uint16_t humidity;
     uint16_t temp;
     uint16_t pressure;
 } baro_reading_t;
