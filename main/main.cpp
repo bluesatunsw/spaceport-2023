@@ -22,6 +22,34 @@
 // Globals
 System dm;
 
+static int64_t payload_monitor_callback(alarm_id_t id, void *user_data) {
+    // Check if payload is OK
+    status payload_status = dm.payload.get_status()
+    if (payload_status == PAYLOAD_STATUS_IDLE) {
+        // Payload is not OK, log error
+        dm.log(std::string("Payload OK: idle"), LOG_INFO);
+    }
+    else if (payload_status == PAYLOAD_STATUS_PRINTING) {
+        dm.log(std::string("Payload OK: experiment in progress"), LOG_INFO);
+    }
+    else if (payload_status == PAYLOAD_STATUS_DONE) {
+        dm.log(std::string("Payload OK: "), LOG_INFO);
+    }
+    else if (payload_status == PAYLOAD_STATUS_FAULT) {
+        dm.log(std::string("Payload error: reporting unspecified fault!"), LOG_ERROR);
+    }
+    else if (payload_status == PAYLOAD_STATUS_OVERHEAT) {
+        dm.log(std::string("Payload error: LED array overheat detected!"), LOG_ERROR);
+    }
+    else if (payload_status == PAYLOAD_STATUS_MOTOR_FAIL) {
+        dm.log(std::string("Payload error: Motor failure detected!"), LOG_ERROR);
+    }
+    else {
+        dm.log(std::string("Payload failed to report status!"), LOG_CRITICAL);
+    }
+    add_alarm_in_ms(2500, payload_monitor_callback, NULL, true);
+}
+
 // idf entrypoint
 extern "C" int main()
 {
@@ -33,7 +61,6 @@ extern "C" int main()
 // Main function
 void obc_main(void) {
     // Switch to appropriate mode
-    printf("WE ARE IN OBC MAIN\n ");
     bool mission_mode = false;
     switch (dm.mode) {
         case MODE_NORMAL:
@@ -68,22 +95,28 @@ void obc_main(void) {
 */
 void mission(bool test) {
     dm.await_arm();
+
+    // Add payload monitor
+    add_alarm_in_ms(2500, payload_monitor_callback, NULL, true);
     printf("Arming sequence complete\n");
     for (;;) {
         // Adapt to flight stage
-        if (dm.flight_stage == STAGE_COAST) {
-
-        }
-        else if (dm.flight_stage == STAGE_POWERED_ASCENT) {
-        
-        }
-        else if (dm.flight_stage == STAGE_DESCENT) {
-
+        if (dm.flight_stage == STAGE_COAST || dm.flight_stage == STAGE_POWERED_ASCENT
+            || dm.flight_stage == STAGE_EXPERIMENT) {
+            // Read sensors
+            fs_log_baro(dm.baroread());
+            fs_log_imu(dm.imuread());
         }
         else if (dm.flight_stage == STAGE_PAD) {
             dm.await_launch();
         }
+        else if (dm.flight_stage == STAGE_TERMINATION) {
+            // Terminate flight
+            break;
+        }
     }
+    shutdown_fs();
+
 }
 
 /**

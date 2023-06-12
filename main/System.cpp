@@ -20,11 +20,8 @@ System::System() {
     // // how C++ handles enum types
     // mode = (system_mode)(gpio_get_level(PIN_OFFLOAD) | (gpio_get_level(PIN_TESTMODE) << 1));
 
-
-    // Initialise logger
-    log_init();
-    
-    // TODO: mount filesystem
+    // Mount FS and create logfiles
+    init_fs();
 
     // Check if RTC is connected
     // Timezone is hardcoded to UTC because we don't really care about it.
@@ -69,6 +66,11 @@ void System::sensor_init() {
         log_internal(std::string("Barometer 0 failed to initialise.\n"), LOG_WARNING);
     }
 
+    err = imu0.init(false);
+    if (err == STATUS_FAILED) {
+        log_internal(std::string("IMU 0 failed to initialise.\n"), LOG_WARNING);
+    }
+
     baro0.checkOK();
     #endif
     #ifdef SPI_ENABLE
@@ -84,18 +86,14 @@ void System::sensor_init() {
     gpio_put(PIN_CS, 1);
 
     // Devices
-
-
+    log_msg(std::string("Initialising payload\n"));
+    status err = payload.init();
+    if (err != STATUS_OK) {
+        log_internal(std::string("!!! Payload failed to initialise!\n"), LOG_CRITICAL);
+    }
     #endif
     // imu0.init(this->i2c, false);
     // imu1.init(this->i2c, true);
-}
-
-void System::sensor_update() {
-    // System::data_ready.acquire(); // block until data is ready
-
-    // imu0.update();
-    // imu1.update();
 }
 
 /**
@@ -104,7 +102,10 @@ void System::sensor_update() {
  * @return std::vector<accel_reading_t> containing readings for each accelerometer
  */
 std::vector<accel_reading_t> System::accelread(void) {
+    // Try read from each accelerometer
     // Placeholder
+
+
     return std::vector<accel_reading_t>({0});
 }
 /**
@@ -113,7 +114,30 @@ std::vector<accel_reading_t> System::accelread(void) {
  * @return std::vector<imu_reading_t> containing readings for each imu
  */
 std::vector<imu_reading_t> System::imuread(void) {
-    // Placeholder
+    auto readings = std::vector<imu_reading_t>();
+    
+    // Try read from each attached IMU
+    if (imu0.alive) {
+        imu_reading_t reading = imu0.read();
+        
+        // Check if IMU has failed
+        if (reading.size() == 0) {
+            log_internal(std::string("IMU 0 failed to read. Bringing offline\n"), LOG_WARNING);
+            imu0.alive = false;
+        }
+        readings.push_back(reading);
+    }
+
+    // if (imu1.alive) {
+    //     imu_reading_t reading = imu1.read();
+        
+    //     // Check if IMU has failed
+    //     if (reading.size() == 0) {
+    //         log_internal(std::string("IMU 1 failed to read. Bringing offline\n"), LOG_WARNING);
+    //         imu1.alive = false;
+    //     }
+    //     readings.push_back(reading);
+    // }
 
     return std::vector<imu_reading_t>({0});
 }
@@ -124,7 +148,30 @@ std::vector<imu_reading_t> System::imuread(void) {
  * @return std::vector<baro_reading_t> containing readings for each barometer
  */
 std::vector<baro_reading_t> System::baroread(void) {
-    // Placeholder
+    auto readings = std::vector<baro_reading_t>();
+
+    // Try read from each attached barometer
+    if (baro0.alive) {
+        baro_reading_t reading = baro0.read();
+        
+        // Check if barometer has failed
+        if (reading.size() == 0) {
+            log_internal(std::string("Barometer 0 failed to read. Bringing offline\n"), LOG_WARNING);
+            baro0.alive = false;
+        }
+        readings.push_back(reading);
+    }
+
+    // if (baro1.alive) {
+    //     baro_reading_t reading = baro1.read();
+        
+    //     // Check if barometer has failed
+    //     if (reading.size() == 0) {
+    //         log_internal(std::string("Barometer 1 failed to read. Bringing offline\n"), LOG_WARNING);
+    //         baro1.alive = false;
+    //     }
+    //     readings.push_back(reading);
+    // }
 
     return std::vector<baro_reading_t>({0});
 }
@@ -254,6 +301,13 @@ static int64_t staging_callback(alarm_id_t id, void *user_data) {
 
     } else if (sys->flight_stage == STAGE_COAST) {
         sys->log_msg("Staging callback triggered, activating payload!\n", LOG_INFO);
+        payload.start();
+        add_alarm_in_ms(BURNOUT_PAYLOAD_DELAY_MS, staging_callback, sys, false);
+        sys->flight_stage = STAGE_EXPERIMENT;
+    } else {
+        // Terminal stage
+        sys->log_msg("Staging callback triggered, terminating flight\n", LOG_INFO);
+        sys->flight_stage = STAGE_TERMINAL;
     }
     return 0;
 }

@@ -22,6 +22,8 @@
 #include "H3LIS100DLTR.hpp"
 #include "BME280.hpp"
 #include "ICM20948.hpp"
+#include "Payload.hpp"
+#include "fs.hpp"
 
 // ### Pins for system control ###
 
@@ -49,14 +51,16 @@ enum stage {
     STAGE_PAD,
     STAGE_POWERED_ASCENT,
     STAGE_COAST,
-    STAGE_DESCENT,
+    STAGE_EXPERIMENT,
+    STAGE_TERMINATION,
 };
 
 
 // ### Constants ###
 #define ARM_DELAY_SECONDS 10 * 1
 #define POWERED_ASCENT_DURATION_MS 65 * 100 // 6.5 seconds
-#define BURNOUT_PAYLOAD_DELAY_MS 10 * 1000  
+#define BURNOUT_PAYLOAD_DELAY_MS 10 * 1000 
+#define TERMINATION_DELAY_MS 10 * 60 * 1000; 
 #define PIN_SCL0 1
 #define PIN_SDA0 0
 #define PIN_CS 15 // Placeholder
@@ -85,12 +89,12 @@ public:
     void log_msg(std::string msg, log_type type);
     void offload(void);
     void sensor_init(void);
-    void sensor_update(void); // block until all sensors have data
 
     // Staging
     void await_arm(void);
     void await_launch(void);
 
+    Payload payload;
 private:
     // Private variables
     flash_mode flashmode;
@@ -98,13 +102,12 @@ private:
 
     // Devices
     DS3231 rtc;
-    H3LIS100DLTR acc0;
-    H3LIS100DLTR acc1;
+    // H3LIS100DLTR acc0;
+    // H3LIS100DLTR acc1;
     BME280 baro0;
-    BME280 baro1;
-    // ICM20948 imu0;
+    // BME280 baro1;
+    ICM20948 imu0;
     // ICM20948 imu1;
-
     // std::shared_ptr<idf::I2CMaster> i2c;
 
     // Private methods
