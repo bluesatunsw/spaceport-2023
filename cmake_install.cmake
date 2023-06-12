@@ -40,6 +40,7 @@ endif()
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for each subdirectory.
   include("/home/matt/bluesat/spaceport-2023/pico-sdk/cmake_install.cmake")
+  include("/home/matt/bluesat/spaceport-2023/littlefs-lib/cmake_install.cmake")
 
 endif()
 

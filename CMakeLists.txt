@@ -18,6 +18,9 @@ set(ICM20948_PATH ${CMAKE_CURRENT_SOURCE_DIR}/icm20948)
 # Specify the path to the ICM-20948 static library
 set(ICM20948_LIB ${ICM20948_PATH}/lib/lib_icm20948.a)
 
+# Pico littlefs
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/littlefs-lib)
+
 add_executable(obc
     main/main.cpp
     main/System.cpp
@@ -36,5 +39,5 @@ pico_enable_stdio_usb(obc 1)
 pico_enable_stdio_uart(obc 1)
 pico_add_extra_outputs(obc)
 
-# Link the ICM-20948 static library
+# Link the ICM-20948 and LittleFS libraries
 target_link_libraries(obc pico_stdlib hardware_i2c hardware_spi ${ICM20948_LIB})

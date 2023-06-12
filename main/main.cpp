@@ -52,11 +52,6 @@ void obc_main(void) {
             return;
     }
     // Initialise sensors
-    sleep_ms(1000);
-    printf("About to initialise sensors!\n");
-    sleep_ms(1000);
-    printf("REALLY GOING TO\n");
-    sleep_ms(1000);
     dm.sensor_init();
 
 
@@ -140,7 +135,7 @@ void diagnostic(void) {
         dm.baroread();
         
         for (int i = 0; i < baro_readings.size(); i++) {
-            printf("| baro%d  h=[%8u] t=[%8u] p=[%8u] ", i, (unsigned)baro_readings[i].temp, (unsigned)baro_readings[i].pressure, (unsigned)baro_readings[i].humidity);
+            printf("| baro%d t=[%8u] p=[%8u] ", i, (unsigned)baro_readings[i].temp, (unsigned)baro_readings[i].pressure);
         }
         // TODO: add logic from drivers to convert raw bytes to actual readout
 

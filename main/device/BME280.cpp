@@ -157,7 +157,25 @@ status BME280::init(bool i2c_bus) {
 }
 
 std::vector<baro_reading_t> BME280::read() {
+    auto readings = std::vector<baro_reading_t>();
+    
+    // Perform raw reads
+    int32_t raw_temperature;
+    int32_t raw_pressure;
+    bme280_read_raw(&raw_temperature, &raw_pressure);
+    if (raw_temperature == 0 || raw_pressure == 0) {
+        return readings;
+    }
+    int32_t comp_temp = bme280_convert_temp(raw_temperature, &_calib_params);
+    int32_t comp_pressure = bme280_convert_pressure(raw_pressure, raw_temperature, &_calib_params);
 
+    // Insert readings into vector
+    baro_reading_t reading;
+    reading.temp = comp_temp;
+    reading.pressure = comp_pressure;
+    readings.push_back(reading);
+
+    return readings;
 }
 
 status BME280::checkOK() {
