@@ -8,9 +8,11 @@
 
 #include <sys/time.h>
 #include "Device.hpp"
-
+#include "types.hpp"
 
 #define DS3231_I2C_ADDR 0x68
+
+
 
 // Class prototype
 class DS3231 : public Device {
