@@ -23,6 +23,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/littlefs-lib)
 add_executable(obc
     main/main.cpp
     main/System.cpp
+    main/fs.cpp
     ${DEVICE_SRC}
 )
 
@@ -39,4 +40,4 @@ pico_enable_stdio_uart(obc 1)
 pico_add_extra_outputs(obc)
 
 # Link the ICM-20948 and LittleFS libraries
-target_link_libraries(obc pico_stdlib hardware_i2c hardware_spi ${ICM20948_LIB})
+target_link_libraries(obc pico_stdlib hardware_i2c hardware_spi ${ICM20948_LIB} littlefs-lib)

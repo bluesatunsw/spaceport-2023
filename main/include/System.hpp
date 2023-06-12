@@ -19,7 +19,6 @@
 // Our dependencies
 #include "types.hpp"
 #include "DS3231.hpp"
-#include "W25Q128.hpp"
 #include "H3LIS100DLTR.hpp"
 #include "BME280.hpp"
 #include "ICM20948.hpp"
@@ -99,7 +98,6 @@ private:
 
     // Devices
     DS3231 rtc;
-    W25Q128 flash;
     H3LIS100DLTR acc0;
     H3LIS100DLTR acc1;
     BME280 baro0;

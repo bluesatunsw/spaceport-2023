@@ -20,14 +20,7 @@ System::System() {
     // // how C++ handles enum types
     // mode = (system_mode)(gpio_get_level(PIN_OFFLOAD) | (gpio_get_level(PIN_TESTMODE) << 1));
 
-    // Check if external flash is OK
-    if (flash.checkOK()) {
-        flashmode = FLASH_EXTERNAL;
-        // flash.init(); 
-    } else {
-        // Switch to internal flash
-        flashmode = FLASH_INTERNAL;
-    }
+
     // Initialise logger
     log_init();
     
@@ -91,7 +84,7 @@ void System::sensor_init() {
     gpio_put(PIN_CS, 1);
 
     // Devices
-    
+
 
     #endif
     // imu0.init(this->i2c, false);
