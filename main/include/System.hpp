@@ -72,11 +72,11 @@ enum stage {
 // ### Class prototype ### 
 class System {
 public:
-    system_mode mode;
-    stage flight_stage;
+    system_mode mode = MODE_NORMAL;
+    stage flight_stage = STAGE_PAD;
     // Default constructor
     System();
-
+    void init(void);
     // Readings
     std::vector<accel_reading_t> accelread(void);
     std::vector<imu_reading_t> imuread(void);
@@ -106,7 +106,7 @@ private:
     // H3LIS100DLTR acc1;
     BME280 baro0;
     // BME280 baro1;
-    ICM20948 imu0;
+    // ICM20948 imu0;
     // ICM20948 imu1;
     // std::shared_ptr<idf::I2CMaster> i2c;
 

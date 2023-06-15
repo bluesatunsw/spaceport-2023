@@ -24,28 +24,28 @@ System dm;
 
 static int64_t payload_monitor_callback(alarm_id_t id, void *user_data) {
     // Check if payload is OK
-    status payload_status = dm.payload.get_status()
+    uint16_t payload_status = dm.payload.get_status();
     if (payload_status == PAYLOAD_STATUS_IDLE) {
         // Payload is not OK, log error
-        dm.log(std::string("Payload OK: idle"), LOG_INFO);
+        dm.log_msg(std::string("Payload OK: idle"), LOG_INFO);
     }
     else if (payload_status == PAYLOAD_STATUS_PRINTING) {
-        dm.log(std::string("Payload OK: experiment in progress"), LOG_INFO);
+        dm.log_msg(std::string("Payload OK: experiment in progress"), LOG_INFO);
     }
     else if (payload_status == PAYLOAD_STATUS_DONE) {
-        dm.log(std::string("Payload OK: "), LOG_INFO);
+        dm.log_msg(std::string("Payload OK: experiment complete"), LOG_INFO);
     }
     else if (payload_status == PAYLOAD_STATUS_FAULT) {
-        dm.log(std::string("Payload error: reporting unspecified fault!"), LOG_ERROR);
+        dm.log_msg(std::string("Payload error: reporting unspecified fault!"), LOG_ERROR);
     }
     else if (payload_status == PAYLOAD_STATUS_OVERHEAT) {
-        dm.log(std::string("Payload error: LED array overheat detected!"), LOG_ERROR);
+        dm.log_msg(std::string("Payload error: LED array overheat detected!"), LOG_ERROR);
     }
     else if (payload_status == PAYLOAD_STATUS_MOTOR_FAIL) {
-        dm.log(std::string("Payload error: Motor failure detected!"), LOG_ERROR);
+        dm.log_msg(std::string("Payload error: Motor failure detected!"), LOG_ERROR);
     }
     else {
-        dm.log(std::string("Payload failed to report status!"), LOG_CRITICAL);
+        dm.log_msg(std::string("Payload failed to report status!"), LOG_CRITICAL);
     }
     add_alarm_in_ms(2500, payload_monitor_callback, NULL, true);
 }
@@ -60,6 +60,25 @@ extern "C" int main()
 
 // Main function
 void obc_main(void) {
+    printf("UART connection window open for 30 seconds...\n");
+    // Await 30 seconds for a serial message of any kind to trigger offload mode
+    for(int i = 0; i < 10; i++) {
+        printf("Awaiting UART message... %d\n", i);
+        if (uart_is_readable(uart0)) {
+            // Read a byte from the UART
+            uint8_t c = uart_getc(uart0);
+            // If it's a '1', enter offload mode
+            if (c == '1') {
+                dm.mode = MODE_OFFLOAD;
+                break;
+            }
+        }
+        sleep_ms(1000);
+    }
+    dm.init();
+    printf("UART connection not received. Switching to mission mode\n");
+
+
     // Switch to appropriate mode
     bool mission_mode = false;
     switch (dm.mode) {
@@ -71,7 +90,7 @@ void obc_main(void) {
             break;
         case MODE_OFFLOAD:
             offload();
-            break;
+            return;
         // default to diagnostic, in case we somehow end up here
         default:
             diagnostic();
@@ -105,7 +124,7 @@ void mission(bool test) {
             || dm.flight_stage == STAGE_EXPERIMENT) {
             // Read sensors
             fs_log_baro(dm.baroread());
-            fs_log_imu(dm.imuread());
+            // fs_log_imu(dm.imuread());
         }
         else if (dm.flight_stage == STAGE_PAD) {
             dm.await_launch();
@@ -119,17 +138,7 @@ void mission(bool test) {
 
 }
 
-/**
- * Offload loop.
- * 
- * Switches the system to act as a USB mass storage device for
- * accessing the data stored on the flash chip.
-*/
-void offload(void) {
-    for (;;) {
-        // Placeholder
-    }
-}
+
 
 /**
  * Diagnostic loop.

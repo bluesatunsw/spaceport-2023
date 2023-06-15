@@ -21,6 +21,12 @@ System::System() {
     // mode = (system_mode)(gpio_get_level(PIN_OFFLOAD) | (gpio_get_level(PIN_TESTMODE) << 1));
 
     // Mount FS and create logfiles
+
+    
+}
+
+void System::init() {
+    printf("SYSTEM: initialising system...\n");
     init_fs();
 
     // Check if RTC is connected
@@ -55,6 +61,7 @@ System::System() {
 void System::sensor_init() {
     // I2C devices
     #ifdef I2C_ENABLE
+    log_internal(std::string("I2C initialisation triggered. UART will go down NOW.\n"), LOG_INFO);
     // Initialise GPIO pins for system control
     gpio_set_function(PIN_SCL0, GPIO_FUNC_I2C);
     gpio_set_function(PIN_SDA0, GPIO_FUNC_I2C);
@@ -86,7 +93,7 @@ void System::sensor_init() {
     gpio_put(PIN_CS, 1);
 
     // Devices
-    log_msg(std::string("Initialising payload\n"));
+    log_msg(std::string("Initialising payload\n"), LOG_INFO);
     status err = payload.init();
     if (err != STATUS_OK) {
         log_internal(std::string("!!! Payload failed to initialise!\n"), LOG_CRITICAL);
@@ -108,39 +115,39 @@ std::vector<accel_reading_t> System::accelread(void) {
 
     return std::vector<accel_reading_t>({0});
 }
-/**
- * Attempts to take a reading for each working IMU.
- *
- * @return std::vector<imu_reading_t> containing readings for each imu
- */
-std::vector<imu_reading_t> System::imuread(void) {
-    auto readings = std::vector<imu_reading_t>();
+// /**
+//  * Attempts to take a reading for each working IMU.
+//  *
+//  * @return std::vector<imu_reading_t> containing readings for each imu
+//  */
+// std::vector<imu_reading_t> System::imuread(void) {
+//     auto readings = std::vector<imu_reading_t>();
     
-    // Try read from each attached IMU
-    if (imu0.alive) {
-        imu_reading_t reading = imu0.read();
+//     // Try read from each attached IMU
+//     if (imu0.alive) {
+//         auto rd = imu0.read();
         
-        // Check if IMU has failed
-        if (reading.size() == 0) {
-            log_internal(std::string("IMU 0 failed to read. Bringing offline\n"), LOG_WARNING);
-            imu0.alive = false;
-        }
-        readings.push_back(reading);
-    }
+//         // Check if IMU has failed
+//         if (rd.size() == 0) {
+//             log_internal(std::string("IMU 0 failed to read. Bringing offline\n"), LOG_WARNING);
+//             imu0.alive = false;
+//         }
+//         readings.insert(readings.end(), rd.begin(), rd.end());
+//     }
 
-    // if (imu1.alive) {
-    //     imu_reading_t reading = imu1.read();
+//     // if (imu1.alive) {
+//     //     imu_reading_t reading = imu1.read();
         
-    //     // Check if IMU has failed
-    //     if (reading.size() == 0) {
-    //         log_internal(std::string("IMU 1 failed to read. Bringing offline\n"), LOG_WARNING);
-    //         imu1.alive = false;
-    //     }
-    //     readings.push_back(reading);
-    // }
+//     //     // Check if IMU has failed
+//     //     if (reading.size() == 0) {
+//     //         log_internal(std::string("IMU 1 failed to read. Bringing offline\n"), LOG_WARNING);
+//     //         imu1.alive = false;
+//     //     }
+//     //     readings.push_back(reading);
+//     // }
 
-    return std::vector<imu_reading_t>({0});
-}
+//     return std::vector<imu_reading_t>({0});
+// }
 
 /**
  * Attempts to take a reading for each working IMU.
@@ -152,14 +159,14 @@ std::vector<baro_reading_t> System::baroread(void) {
 
     // Try read from each attached barometer
     if (baro0.alive) {
-        baro_reading_t reading = baro0.read();
+        auto rd = baro0.read();
         
         // Check if barometer has failed
-        if (reading.size() == 0) {
+        if (rd.size() == 0) {
             log_internal(std::string("Barometer 0 failed to read. Bringing offline\n"), LOG_WARNING);
             baro0.alive = false;
         }
-        readings.push_back(reading);
+        readings.insert(readings.end(), rd.begin(), rd.end());
     }
 
     // if (baro1.alive) {
@@ -301,13 +308,13 @@ static int64_t staging_callback(alarm_id_t id, void *user_data) {
 
     } else if (sys->flight_stage == STAGE_COAST) {
         sys->log_msg("Staging callback triggered, activating payload!\n", LOG_INFO);
-        payload.start();
+        sys->payload.start();
         add_alarm_in_ms(BURNOUT_PAYLOAD_DELAY_MS, staging_callback, sys, false);
         sys->flight_stage = STAGE_EXPERIMENT;
     } else {
         // Terminal stage
         sys->log_msg("Staging callback triggered, terminating flight\n", LOG_INFO);
-        sys->flight_stage = STAGE_TERMINAL;
+        sys->flight_stage = STAGE_TERMINATION;
     }
     return 0;
 }

@@ -38,11 +38,6 @@ public:
 
     // FYI: ignore the "=0" after these methods. It just forced them to be purely virtual.
 
-protected:
-    // TimerHandle_t health_check_timer;
     bool alive;
-    // // freeRTOS task function for watchdog
-    // virtual void watchdog_task(void *parameters) = 0;
-    // virtual void watchdog_callback(TimerHandle_t xTimer) = 0;
 };
 #endif
