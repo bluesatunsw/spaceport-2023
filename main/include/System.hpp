@@ -35,8 +35,8 @@
 // #define PIN_SDA idf::SDA_GPIO(21)
 
 // ### config ###
-// #define I2C_ENABLE
-#define SPI_ENABLE
+#define I2C_ENABLE
+// #define SPI_ENABLE
 
 
 // ### enums ###
@@ -102,7 +102,7 @@ private:
 
     // Devices
     DS3231 rtc;
-    // H3LIS100DLTR acc0;
+    H3LIS100DLTR acc0;
     // H3LIS100DLTR acc1;
     BME280 baro0;
     // BME280 baro1;

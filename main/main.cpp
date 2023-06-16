@@ -24,6 +24,7 @@ System dm;
 
 static int64_t payload_monitor_callback(alarm_id_t id, void *user_data) {
     // Check if payload is OK
+    printf("Payload callback reporting\n");
     uint16_t payload_status = dm.payload.get_status();
     if (payload_status == PAYLOAD_STATUS_IDLE) {
         // Payload is not OK, log error
@@ -48,6 +49,7 @@ static int64_t payload_monitor_callback(alarm_id_t id, void *user_data) {
         dm.log_msg(std::string("Payload failed to report status!"), LOG_CRITICAL);
     }
     add_alarm_in_ms(2500, payload_monitor_callback, NULL, true);
+    printf("Payload callback complete\n");
 }
 
 // idf entrypoint
@@ -61,22 +63,15 @@ extern "C" int main()
 // Main function
 void obc_main(void) {
     printf("UART connection window open for 30 seconds...\n");
+    
     // Await 30 seconds for a serial message of any kind to trigger offload mode
     for(int i = 0; i < 10; i++) {
-        printf("Awaiting UART message... %d\n", i);
-        if (uart_is_readable(uart0)) {
-            // Read a byte from the UART
-            uint8_t c = uart_getc(uart0);
-            // If it's a '1', enter offload mode
-            if (c == '1') {
-                dm.mode = MODE_OFFLOAD;
-                break;
-            }
-        }
+        printf("Preparing to offload... %d\n", i);
         sleep_ms(1000);
     }
+
     dm.init();
-    printf("UART connection not received. Switching to mission mode\n");
+    offload();
 
 
     // Switch to appropriate mode
@@ -100,7 +95,6 @@ void obc_main(void) {
     // Initialise sensors
     dm.sensor_init();
 
-
     mission(mission_mode);
 }
 
@@ -114,16 +108,17 @@ void obc_main(void) {
 */
 void mission(bool test) {
     dm.await_arm();
-
+    dm.log_msg(std::string("Entered mission loop\n"), LOG_INFO);
     // Add payload monitor
-    add_alarm_in_ms(2500, payload_monitor_callback, NULL, true);
-    printf("Arming sequence complete\n");
+    // add_alarm_in_ms(2500, payload_monitor_callback, NULL, true);
     for (;;) {
         // Adapt to flight stage
         if (dm.flight_stage == STAGE_COAST || dm.flight_stage == STAGE_POWERED_ASCENT
             || dm.flight_stage == STAGE_EXPERIMENT) {
+            printf("We are in the coast loop\n");
             // Read sensors
             fs_log_baro(dm.baroread());
+            // fs_log_acc(dm.accelread());
             // fs_log_imu(dm.imuread());
         }
         else if (dm.flight_stage == STAGE_PAD) {
@@ -133,7 +128,9 @@ void mission(bool test) {
             // Terminate flight
             break;
         }
+        sleep_ms(25);
     }
+    dm.log_msg(std::string("Flight terminated"), LOG_INFO);
     shutdown_fs();
 
 }

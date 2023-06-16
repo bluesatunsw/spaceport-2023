@@ -67,18 +67,28 @@ void System::sensor_init() {
     gpio_set_function(PIN_SDA0, GPIO_FUNC_I2C);
     gpio_pull_up(PIN_SCL0);
     gpio_pull_up(PIN_SDA0);
-    i2c_init(i2c0, 400000);
+    int baud = i2c_init(i2c0, 400000);
+    // Report achieved baud rate
+    printf("I2C baud rate: %d\n", baud);
+
+    log_internal(std::string("I2C pins set\n"), LOG_INFO);
+    printf("rigatoni\n");
     status err = baro0.init(false);
     if (err == STATUS_FAILED) {
         log_internal(std::string("Barometer 0 failed to initialise.\n"), LOG_WARNING);
     }
+    // log_internal(std::string("Barometer 0 initialised.\n"), LOG_INFO);
 
-    err = imu0.init(false);
+    // err = imu0.init(false);
+    // if (err == STATUS_FAILED) {
+    //     log_internal(std::string("IMU 0 failed to initialise.\n"), LOG_WARNING);
+    // }
+    printf("spagheti\n");
+    // err = acc0.init();
     if (err == STATUS_FAILED) {
-        log_internal(std::string("IMU 0 failed to initialise.\n"), LOG_WARNING);
+        log_internal(std::string("Accelerometer 0 failed to initialise.\n"), LOG_WARNING);
     }
-
-    baro0.checkOK();
+    // log_internal(std::string("Accelerometer 0 initialised.\n"), LOG_INFO);
     #endif
     #ifdef SPI_ENABLE
     // Set up SPI bus
@@ -94,13 +104,15 @@ void System::sensor_init() {
 
     // Devices
     log_msg(std::string("Initialising payload\n"), LOG_INFO);
-    status err = payload.init();
+    err = payload.init();
     if (err != STATUS_OK) {
         log_internal(std::string("!!! Payload failed to initialise!\n"), LOG_CRITICAL);
     }
     #endif
+    printf("penne\n");
     // imu0.init(this->i2c, false);
     // imu1.init(this->i2c, true);
+    log_internal(std::string("Sensor setup complete!"), LOG_INFO);
 }
 
 /**
@@ -109,9 +121,14 @@ void System::sensor_init() {
  * @return std::vector<accel_reading_t> containing readings for each accelerometer
  */
 std::vector<accel_reading_t> System::accelread(void) {
-    // Try read from each accelerometer
-    // Placeholder
+    auto readings = std::vector<accel_reading_t>();
 
+    // Try read from each attached accelerometer
+    auto rd = acc0.read();
+    if (rd.size() == 0) {
+        log_internal(std::string("Accelerometer 0 failed to read!\n"), LOG_CRITICAL);
+    }
+    readings.insert(readings.end(), rd.begin(), rd.end());
 
     return std::vector<accel_reading_t>({0});
 }
@@ -169,6 +186,11 @@ std::vector<baro_reading_t> System::baroread(void) {
         readings.insert(readings.end(), rd.begin(), rd.end());
     }
 
+    // Print reading
+    for (auto reading : readings) {
+        printf("Barometer reading: %f\n", reading.pressure);
+    }
+
     // if (baro1.alive) {
     //     baro_reading_t reading = baro1.read();
         
@@ -180,7 +202,7 @@ std::vector<baro_reading_t> System::baroread(void) {
     //     readings.push_back(reading);
     // }
 
-    return std::vector<baro_reading_t>({0});
+    return readings;
 }
 
 /**
@@ -193,7 +215,16 @@ std::vector<baro_reading_t> System::baroread(void) {
  * @param msg The message to log.
 */
 void System::log_msg(std::string msg, log_type type) {
-    // Placeholder
+    // Send message to fs with type prepended
+    if (type == LOG_INFO) {
+        msg = "[INFO] " + msg;
+    } else if (type == LOG_WARNING) {
+        msg = "[WARNING] " + msg;
+    } else if (type == LOG_CRITICAL) {
+        msg = "[CRITICAL] " + msg;
+    }
+
+    fs_logmsg(msg);
     std::cout << msg;
 }
 
@@ -208,8 +239,8 @@ void System::log_msg(std::string msg, log_type type) {
  * @param msg The message to log.
 */
 void System::log_internal(std::string msg, log_type type) {
-    // Placeholder
-    std::cout << "System: " << msg;
+    msg = "[SYSTEM] " + msg;
+    log_msg(msg, type);
 }
 
 /**

@@ -89,18 +89,21 @@ int init_fs() {
         lfs_format(&lfs, &FLASH_CONFIG);
         ret = lfs_mount(&lfs, &FLASH_CONFIG);
         if (ret) return 1; // Failed to mount
+        printf("Format successful. \n");
     }
-    printf("Format successful. \n");
 
     lfs_file_t file;
     // Check if log.txt, imu.txt and baro.txt exist. Create otherwise.
-
+    printf("Checking log.txt\n");
     int f = lfs_file_open(&lfs, &file, "/log.txt", LFS_O_RDWR | LFS_O_CREAT);
+    lfs_file_write(&lfs, &file, "Log file opened.\n", 17);
     lfs_file_close(&lfs, &file);
 
+    printf("Checking baro.txt\n");
     f = lfs_file_open(&lfs, &file, "/baro.txt", LFS_O_RDWR | LFS_O_CREAT);
     lfs_file_close(&lfs, &file);
 
+    printf("Checking acc.txt\n");
     f = lfs_file_open(&lfs, &file, "/acc.txt", LFS_O_RDWR | LFS_O_CREAT);
     lfs_file_close(&lfs, &file);
     
@@ -128,18 +131,16 @@ int fs_logmsg(std::string msg) {
     uint16_t millisecond = (timestamp / 1000) % 1000;
     uint16_t day = (timestamp / 86400000000) % 365;
 
-    std::stringstream ss;
-    ss << day << " - " << std::setfill('0') << std::setw(2) << hour << ":" 
-        << std::setfill('0') << std::setw(2) << minute << ":" 
-        << std::setfill('0') << std::setw(2) << second << "." 
-        << std::setfill('0') << std::setw(3) << millisecond << ": " << msg << "\n";
+    const char* c_msg = msg.c_str();
+    char s[1024];
+    // Format timestamp and message
+    sprintf(s, "%u - %02u:%02u:%02u.%03u: %s\n", day, hour, minute, second, millisecond, c_msg);
 
-    std::string s = ss.str();
-    lfs_file_write(&lfs, &file, s.c_str(), s.size());
-
+    lfs_ssize_t b = lfs_file_write(&lfs, &file, s, strlen(s));
     lfs_file_close(&lfs, &file);
     return 0;
 }
+
 
 int fs_log_imu(std::vector<imu_reading_t> readings) {
     lfs_file_t file;
@@ -156,21 +157,20 @@ int fs_log_imu(std::vector<imu_reading_t> readings) {
     uint16_t millisecond = (timestamp / 1000) % 1000;
     uint16_t day = (timestamp / 86400000000) % 365;
 
-    std::stringstream ss;
-    // Log timestamp + contents of reading vector
-    ss << day << " - " << std::setfill('0') << std::setw(2) << hour << ":" 
-        << std::setfill('0') << std::setw(2) << minute << ":" 
-        << std::setfill('0') << std::setw(2) << second << "." 
-        << std::setfill('0') << std::setw(3) << millisecond << ",";
-    
-    for (auto reading : readings) {
-        ss << reading.acc_x << "," << reading.acc_y << "," << reading.acc_z 
-            << "," << reading.gyr_x << "," << reading.gyr_y << "," << reading.gyr_z << ",";
-    }
-    ss << "\n";
+    char s[1024];
+    sprintf(s, "%u - %02u:%02u:%02u.%03u,", day, hour, minute, second, millisecond);
 
-    std::string s = ss.str();
-    lfs_file_write(&lfs, &file, s.c_str(), s.size());
+    for (auto reading : readings) {
+        char temp[256];
+        sprintf(temp, "%f,%f,%f,%f,%f,%f,", 
+            reading.acc_x, reading.acc_y, reading.acc_z, 
+            reading.gyr_x, reading.gyr_y, reading.gyr_z);
+        strcat(s, temp);
+    }
+
+    strcat(s, "\n");
+
+    lfs_file_write(&lfs, &file, s, strlen(s));
 
     lfs_file_close(&lfs, &file);
     return 0;
@@ -191,20 +191,50 @@ int fs_log_baro(std::vector<baro_reading_t> readings) {
     uint16_t millisecond = (timestamp / 1000) % 1000;
     uint16_t day = (timestamp / 86400000000) % 365;
 
-    std::stringstream ss;
-    ss << day << " - " << std::setfill('0') << std::setw(2) << hour << ":" 
-        << std::setfill('0') << std::setw(2) << minute << ":" 
-        << std::setfill('0') << std::setw(2) << second << "." 
-        << std::setfill('0') << std::setw(3) << millisecond << ",";
-    
-    for (auto reading : readings) {
-        ss << reading.temp << "," << reading.pressure << "," << "\n";
-    }
-    
-    ss << "\n";
+    char s[1024];
+    sprintf(s, "%u - %02u:%02u:%02u.%03u,", day, hour, minute, second, millisecond);
 
-    std::string s = ss.str();
-    lfs_file_write(&lfs, &file, s.c_str(), s.size());
+    for (auto reading : readings) {
+        char temp[256];
+        sprintf(temp, "%f,%f,\n", reading.temp, reading.pressure);
+        strcat(s, temp);
+    }
+
+    strcat(s, "\n");
+
+    lfs_file_write(&lfs, &file, s, strlen(s));
+
+    lfs_file_close(&lfs, &file);
+    return 0;
+}
+
+int fs_log_acc(std::vector<accel_reading_t> readings) {
+    lfs_file_t file;
+    int f = lfs_file_open(&lfs, &file, "/acc.txt", LFS_O_APPEND);
+    if (f < 0) return -1;
+
+    // Get timestamp from system clock
+    uint64_t timestamp = time_us_64();
+
+    // Convert time to 24h format + day of year
+    uint8_t hour = (timestamp / 3600000000) % 24;
+    uint8_t minute = (timestamp / 60000000) % 60;
+    uint8_t second = (timestamp / 1000000) % 60;
+    uint16_t millisecond = (timestamp / 1000) % 1000;
+    uint16_t day = (timestamp / 86400000000) % 365;
+
+    char s[1024];
+    sprintf(s, "%u - %02u:%02u:%02u.%03u,", day, hour, minute, second, millisecond);
+
+    for (auto reading : readings) {
+        char temp[256];
+        sprintf(temp, "%f,%f,%f\n", reading.acc_x, reading.acc_y, reading.acc_z);
+        strcat(s, temp);
+    }
+
+    strcat(s, "\n");
+
+    lfs_file_write(&lfs, &file, s, strlen(s));
 
     lfs_file_close(&lfs, &file);
     return 0;
@@ -225,13 +255,14 @@ void shutdown_fs() {
  * After all files have been offloaded, the system will terminate.
 */
 void offload(void) {
+    printf("Offload starting!\n");
     // First: get FS size
     lfs_ssize_t fs_size = lfs_fs_size(&lfs);
     // printf("Filesystem online. Block size: %d, total blocks: %d, used blocks %d\n", SECTOR_SIZE, BLOCK_COUNT, fs_size);
     
     // Second: request list of files from root of FS from littlefs
     lfs_dir_t dir;
-    int ret = lfs_dir_open(&lfs, &dir, "/");
+    int ret = lfs_dir_open(&lfs, &dir, "");
     if (ret < 0) {
         printf("Error: could not open root directory!\n");
         return;
@@ -240,6 +271,7 @@ void offload(void) {
     // Third: iterate through files and print to serial
     struct lfs_info finfo;
     lfs_file_t file;
+    printf("Opening root directory\n");
     while (lfs_dir_read(&lfs, &dir, &finfo) != 0) {
         // Print file name
         printf("File: %s\n", finfo.name);
@@ -247,7 +279,7 @@ void offload(void) {
         ret = lfs_file_open(&lfs, &file, finfo.name, LFS_O_RDONLY);
         if (ret < 0) {
             printf("Error: could not open file %s!\n", finfo.name);
-            return;
+            continue;
         }
         // Print file start
         printf("\\FILE START %s\\\n", finfo.name);
@@ -265,6 +297,6 @@ void offload(void) {
     // Close directory
     lfs_dir_close(&lfs, &dir);
 
-    // Unmount filesystem and exit
-    lfs_unmount(&lfs);
+    // // Unmount filesystem and exit
+    // lfs_unmount(&lfs);
 }

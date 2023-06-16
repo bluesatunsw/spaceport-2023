@@ -25,5 +25,6 @@ int init_fs();
 int fs_logmsg(std::string msg);
 int fs_log_imu(std::vector<imu_reading_t> readings);
 int fs_log_baro(std::vector<baro_reading_t> readings);
+int fs_log_acc(std::vector<accel_reading_t> readings);
 void shutdown_fs();
 void offload(void);

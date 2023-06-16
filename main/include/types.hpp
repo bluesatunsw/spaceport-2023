@@ -10,9 +10,9 @@
 #include <stdint.h>
 
 typedef struct {
-    uint16_t acc_x;
-    uint16_t acc_y;
-    uint16_t acc_z;
+    float acc_x;
+    float acc_y;
+    float acc_z;
 } accel_reading_t;
 
 typedef struct {

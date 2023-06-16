@@ -136,16 +136,18 @@ status BME280::init(bool i2c_bus) {
     // send register number followed by its corresponding value
     buf[0] = REG_CONFIG;
     buf[1] = reg_config_val;
+    printf("pomodorino");
     int err = i2c_write_blocking(i2c0, BME_I2C_ADDR, buf, 2, false);
     if (err == PICO_ERROR_GENERIC) {
         return STATUS_FAILED;
     }
+    printf("angelhair");
 
     // osrs_t x1, osrs_p x4, normal mode operation
     const uint8_t reg_ctrl_meas_val = (0x01 << 5) | (0x03 << 2) | (0x03);
     buf[0] = REG_CTRL_MEAS;
     buf[1] = reg_ctrl_meas_val;
-    err = i2c_write_blocking(i2cbus, BME_I2C_ADDR, buf, 2, false);
+    err = i2c_write_blocking(i2c0, BME_I2C_ADDR, buf, 2, false);
     if (err == PICO_ERROR_GENERIC) {
         return STATUS_FAILED;
     }

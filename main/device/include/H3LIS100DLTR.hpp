@@ -7,6 +7,9 @@
 #define H3LIS100DLTR_H
 
 #include "Device.hpp"
+#include "hardware/i2c.h"
+#include "pico/stdlib.h"
+#include "h3lis100dl_reg.h"
 
 #define H3LIS100DLTR_I2C_ADDR 0x19
 #define H3LIS100DLTR_R_STATUS 0x27
