@@ -7,8 +7,13 @@
 #define H3LIS100DLTR_H
 
 #include "Device.hpp"
+#include "hardware/i2c.h"
+#include "pico/stdlib.h"
+#include "h3lis100dl_reg.h"
 
 #define H3LIS100DLTR_I2C_ADDR 0x19
+#define H3LIS100DLTR_R_STATUS 0x27
+
 
 class H3LIS100DLTR : public Device {
 public:
@@ -16,18 +21,10 @@ public:
 
     // Device methods
     status checkOK() override;
-    status init(idf::I2CMaster);
+    status init();
     std::vector<accel_reading_t> read();
 
-    void stop() override;
 
-protected: 
-    void watchdog_task(void *parameters) override;
-    void watchdog_callback(TimerHandle_t xtimer) override;
-
-private:
-    std::shared_ptr<idf::I2CAddress> addr;
-    std::shared_ptr<idf::I2CMaster> i2c;
 };
 
 #endif

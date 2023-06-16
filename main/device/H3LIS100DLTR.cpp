@@ -5,8 +5,34 @@
 
 #include "H3LIS100DLTR.hpp"
 
+// I2C wrappers for the H3LIS100DLTR
+
+// I2C write from Bufp to register Reg
+int32_t platform_write(void *handle, uint8_t Reg, const uint8_t *Bufp, uint16_t len) {
+    // Write register handle
+    i2c_write_blocking(i2c_default, H3LIS100DLTR_I2C_ADDR, &Reg, 1, true);
+    // Write data
+    i2c_write_blocking(i2c_default, H3LIS100DLTR_I2C_ADDR, Bufp, len, false);
+
+    return 0;
+}
+
+int32_t platform_read(void *handle, uint8_t Reg, uint8_t *Bufp, uint16_t len) {
+    // Write register handle
+    i2c_write_blocking(i2c_default, H3LIS100DLTR_I2C_ADDR, &Reg, 1, true);
+    // Read
+    i2c_read_blocking(i2c_default, H3LIS100DLTR_I2C_ADDR, Bufp, len, false);
+}
+
+stmdev_ctx_t dev_ctx = {
+    platform_write,
+    platform_read,
+    0,
+    0
+};
+
 H3LIS100DLTR::H3LIS100DLTR() {
-    // Placeholder
+    
 }
 
 /**
@@ -14,8 +40,19 @@ H3LIS100DLTR::H3LIS100DLTR() {
  * @return A vector of readings from this device of type [TYPE]
 */
 std::vector<accel_reading_t> H3LIS100DLTR::read() {
-    // Placeholder
+    // Get acceleration
+    int8_t raw_acceleration[3];
+    int32_t ret = h3lis100dl_acceleration_raw_get(&dev_ctx, raw_acceleration);
+
+    // Adjust
+    accel_reading_t reading = {
+        .acc_x = h3lis100dl_from_fs100g_to_mg(raw_acceleration[0]),
+        .acc_y = h3lis100dl_from_fs100g_to_mg(raw_acceleration[1]),
+        .acc_z = h3lis100dl_from_fs100g_to_mg(raw_acceleration[2])
+    };
     std::vector<accel_reading_t> readings = std::vector<accel_reading_t>({0});
+    // Add to vector
+    readings.push_back(reading);
     return readings;
 }
 
@@ -44,23 +81,13 @@ status H3LIS100DLTR::checkOK() {
  * 
  * @return status: device status
 */
-status H3LIS100DLTR::init(idf::I2CMaster i2c) {
-    // Placeholder
+status H3LIS100DLTR::init() {
+    // Enable all axes
+    h3lis100dl_axis_x_data_set(&dev_ctx, PROPERTY_ENABLE);
+    h3lis100dl_axis_y_data_set(&dev_ctx, PROPERTY_ENABLE);
+    h3lis100dl_axis_z_data_set(&dev_ctx, PROPERTY_ENABLE);
+
+    // Set output data rate to 100Hz
+    h3lis100dl_data_rate_set(&dev_ctx, H3LIS100DL_ODR_100Hz);
     return STATUS_OK;
-}
-
-
-void H3LIS100DLTR::stop()
-{
-
-}
-
-void H3LIS100DLTR::watchdog_task(void *parameters)
-{
-
-}
-
-void H3LIS100DLTR::watchdog_callback(TimerHandle_t xtimer)
-{
-
 }

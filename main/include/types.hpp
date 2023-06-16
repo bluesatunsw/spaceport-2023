@@ -10,9 +10,9 @@
 #include <stdint.h>
 
 typedef struct {
-    uint16_t acc_x;
-    uint16_t acc_y;
-    uint16_t acc_z;
+    float acc_x;
+    float acc_y;
+    float acc_z;
 } accel_reading_t;
 
 typedef struct {
@@ -22,16 +22,11 @@ typedef struct {
     uint16_t gyr_x;
     uint16_t gyr_y;
     uint16_t gyr_z;
-    uint16_t mag_x;
-    uint16_t mag_y;
-    uint16_t mag_z;
-    uint16_t temp;
 } imu_reading_t;
 
 typedef uint32_t rtc_reading_t;
 
 typedef struct {
-    uint16_t humidity;
     uint16_t temp;
     uint16_t pressure;
 } baro_reading_t;

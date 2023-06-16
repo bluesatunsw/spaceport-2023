@@ -1,40 +1,35 @@
-// ICM20948.hpp
-// Header file for the ICM20948 9-axis IMU
-// Ibrahim Fuad - (kiesen)
-// 05/2023
+// // ICM20948.hpp
+// // Header file for the ICM20948 9-axis IMU
+// // Ibrahim Fuad - (kiesen)
+// // 05/2023
 
-#ifndef ICM20948_H
-#define ICM20948_H
+// #ifndef ICM20948_H
+// #define ICM20948_H
 
+// #include "Device.hpp"
+// #include "icm20948_api.h"
+// #include "pico/stdlib.h"
+// #include "hardware/i2c.h"
 
-#include "Device.hpp"
-#include <i2c_cxx.hpp>
+// #define ICM_I2C_ADDR _u(0x68)
 
-class ICM20948 : public Device {
-public:
-    ICM20948();
+// class ICM20948 : public Device {
+// public:
+//     ICM20948();
+//     i2c_inst_t *i2cbus;
 
-    static const uint8_t BASE_ADDRESS = 0x69;
+//     std::vector<imu_reading_t> read();
+//     status init(bool alt_address);
 
-    std::vector<imu_reading_t> read();
-    status init(std::shared_ptr<idf::I2CMaster>, bool alt_address);
+//     // Device methods
+//     status checkOK() override;
+//     void update(void);
 
-    // Device methods
-    status checkOK() override;
+// private:
 
-    void stop() override;
+// };
+// static int8_t usr_write(const uint8_t addr, const uint8_t *data, const uint32_t len);
+// static int8_t usr_read(const uint8_t addr, uint8_t *data, const uint32_t len);
+// static void usr_delay_us(uint32_t period);
 
-    void update(void);
-
-protected: 
-    void watchdog_task(void *parameters) override;
-    void watchdog_callback(TimerHandle_t xtimer) override;
-
-private:
-    std::unique_ptr<idf::I2CAddress> addr;
-    std::shared_ptr<idf::I2CMaster> i2c;
-
-    std::vector<imu_reading_t> measurements;
-};
-
-#endif
+// #endif

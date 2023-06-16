@@ -22,17 +22,59 @@
 // Globals
 System dm;
 
+static int64_t payload_monitor_callback(alarm_id_t id, void *user_data) {
+    // Check if payload is OK
+    printf("Payload callback reporting\n");
+    uint16_t payload_status = dm.payload.get_status();
+    if (payload_status == PAYLOAD_STATUS_IDLE) {
+        // Payload is not OK, log error
+        dm.log_msg(std::string("Payload OK: idle"), LOG_INFO);
+    }
+    else if (payload_status == PAYLOAD_STATUS_PRINTING) {
+        dm.log_msg(std::string("Payload OK: experiment in progress"), LOG_INFO);
+    }
+    else if (payload_status == PAYLOAD_STATUS_DONE) {
+        dm.log_msg(std::string("Payload OK: experiment complete"), LOG_INFO);
+    }
+    else if (payload_status == PAYLOAD_STATUS_FAULT) {
+        dm.log_msg(std::string("Payload error: reporting unspecified fault!"), LOG_ERROR);
+    }
+    else if (payload_status == PAYLOAD_STATUS_OVERHEAT) {
+        dm.log_msg(std::string("Payload error: LED array overheat detected!"), LOG_ERROR);
+    }
+    else if (payload_status == PAYLOAD_STATUS_MOTOR_FAIL) {
+        dm.log_msg(std::string("Payload error: Motor failure detected!"), LOG_ERROR);
+    }
+    else {
+        dm.log_msg(std::string("Payload failed to report status!"), LOG_CRITICAL);
+    }
+    add_alarm_in_ms(2500, payload_monitor_callback, NULL, true);
+    printf("Payload callback complete\n");
+}
+
 // idf entrypoint
-extern "C" void app_main()
+extern "C" int main()
 {
+    stdio_init_all();
     printf("Initialising Bluesat Rocket Telemetry system...\n");
     obc_main();
 }
 
 // Main function
 void obc_main(void) {
+    printf("UART connection window open for 30 seconds...\n");
+    
+    // Await 30 seconds for a serial message of any kind to trigger offload mode
+    for(int i = 0; i < 10; i++) {
+        printf("Preparing to offload... %d\n", i);
+        sleep_ms(1000);
+    }
+
+    dm.init();
+    offload();
+
+
     // Switch to appropriate mode
-    printf("WE ARE IN OBC MAIN\n ");
     bool mission_mode = false;
     switch (dm.mode) {
         case MODE_NORMAL:
@@ -43,19 +85,15 @@ void obc_main(void) {
             break;
         case MODE_OFFLOAD:
             offload();
-            break;
+            return;
         // default to diagnostic, in case we somehow end up here
         default:
             diagnostic();
             // Diagnostic should never return, but just in case...
             return;
     }
-    // Initialise bus
-    dm.i2c_init();
-
     // Initialise sensors
     dm.sensor_init();
-
 
     mission(mission_mode);
 }
@@ -69,24 +107,35 @@ void obc_main(void) {
  *             all logging output will be outputted on serial.
 */
 void mission(bool test) {
-    
-    
+    dm.await_arm();
+    dm.log_msg(std::string("Entered mission loop\n"), LOG_INFO);
+    // Add payload monitor
+    // add_alarm_in_ms(2500, payload_monitor_callback, NULL, true);
     for (;;) {
-        // Placeholder
+        // Adapt to flight stage
+        if (dm.flight_stage == STAGE_COAST || dm.flight_stage == STAGE_POWERED_ASCENT
+            || dm.flight_stage == STAGE_EXPERIMENT) {
+            printf("We are in the coast loop\n");
+            // Read sensors
+            fs_log_baro(dm.baroread());
+            // fs_log_acc(dm.accelread());
+            // fs_log_imu(dm.imuread());
+        }
+        else if (dm.flight_stage == STAGE_PAD) {
+            dm.await_launch();
+        }
+        else if (dm.flight_stage == STAGE_TERMINATION) {
+            // Terminate flight
+            break;
+        }
+        sleep_ms(25);
     }
+    dm.log_msg(std::string("Flight terminated"), LOG_INFO);
+    shutdown_fs();
+
 }
 
-/**
- * Offload loop.
- * 
- * Switches the system to act as a USB mass storage device for
- * accessing the data stored on the flash chip.
-*/
-void offload(void) {
-    for (;;) {
-        // Placeholder
-    }
-}
+
 
 /**
  * Diagnostic loop.
@@ -111,7 +160,7 @@ void diagnostic(void) {
 
         // Print all values in one line
         // FIXME: Uncomment this below 
-        printf("%" PRIu64 " ", curr_time);
+        // printf("%" PRIu64 " ", curr_time);
         // for (int i = 0; i < accel_readings.size(); i++) {
         //     printf("| acc%d    x=[%8u] y=[%8u] z=[%8u] |\n",i, accel_readings[i].acc_x, accel_readings[i].acc_y, accel_readings[i].acc_z);
         // }
@@ -125,7 +174,7 @@ void diagnostic(void) {
         dm.baroread();
         
         for (int i = 0; i < baro_readings.size(); i++) {
-            printf("| baro%d  h=[%8u] t=[%8u] p=[%8u] ", i, (unsigned)baro_readings[i].temp, (unsigned)baro_readings[i].pressure, (unsigned)baro_readings[i].humidity);
+            printf("| baro%d t=[%8u] p=[%8u] ", i, (unsigned)baro_readings[i].temp, (unsigned)baro_readings[i].pressure);
         }
         // TODO: add logic from drivers to convert raw bytes to actual readout
 

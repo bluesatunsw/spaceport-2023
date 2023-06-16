@@ -1,137 +1,134 @@
-// ICM20948.cpp
-// Implementation for the ICM20948 9-axis IMU
-// [name] [github handle]
-// 05/2023
+// // ICM20948.cpp
+// // Implementation for the ICM20948 9-axis IMU
+// // Matt Rossouw (omeh-a)
+// // 06/2023
 
-#include "ICM20948.hpp"
-#include "i2c_cxx.hpp"
-#include "types.hpp"
-#include <memory>
-#include <sys/_stdint.h>
+// #include "ICM20948.hpp"
 
-ICM20948::ICM20948() {
-    // Placeholder
-}
+// static i2c_inst_t *curr_i2cbus; // this upsets me greatly
 
-/**
- * Take a reading from this device.
- * @return A vector of readings from this device of type [TYPE]
-*/
-std::vector<imu_reading_t> ICM20948::read() {
-    // Placeholder
+// // C interface for ICM driver from Stephen Murphy
+// static int8_t usr_write(const uint8_t addr, const uint8_t *data, const uint32_t len) {
+//     icm20948_return_code_t ret = ICM20948_RET_OK;
+//     uint8_t reg = addr;
 
-    // imu_reading_t placeholder[] = {0};
-    // std::vector<imu_reading_t> readings = std::vector<imu_reading_t>(placeholder, placeholder + sizeof(imu_reading_t) / sizeof(placeholder[0]));
+//     // Write the address
+//     i2c_write_blocking(curr_i2cbus, ICM_I2C_ADDR, &reg, 1, true);
+    
+//     // Write the data from the provided data buffer
+//     int err = i2c_write_blocking(curr_i2cbus, ICM_I2C_ADDR, data, len, false);
+//     if (err == PICO_ERROR_GENERIC) return ICM20948_RET_GEN_FAIL;
+//     return ret;
+// }
 
-    // the swap is so that the internal measuremnets are earased, and are handed to the caller
-    auto readings = std::vector<imu_reading_t>{};
-    measurements.swap(readings);
+// static int8_t usr_read(const uint8_t addr, uint8_t *data, const uint32_t len) {
+//     icm20948_return_code_t ret = ICM20948_RET_OK;
 
-    return readings;
-}
+//     uint8_t reg = addr;
 
-/**
- * Check if the device is working correctly.
- * 
- * Returns either STATUS_OK if normal, STATUS_MISBEHAVING if
- * accessible but readings out of range, or STATUS_FAILED otherwise.
- * 
- * @return status: device status
-*/
-status ICM20948::checkOK() {
-    // Placeholder
-    return STATUS_OK;
-}
+//     // Write the address
+//     i2c_write_blocking(curr_i2cbus, ICM_I2C_ADDR, &reg, 1, true);
 
-#define USER_CTRL 0x03
-#define INT_ENABLE 0x10
+//     // Read out the data, placing the result in the data buffer
+//     int err = i2c_read_blocking(curr_i2cbus, ICM_I2C_ADDR, data, len, false);
 
-/**
- * Initialise the device.
- * 
- * Performs any setup required inc. calculating
- * magic numbers etc. - returns a STATUS the same way as checkOK. You can probably
- * just call checkOK at the end of this, but obviously there if you fail the setup steps
- * that's worth thinking about too.
- * 
- * @return status: device status
-*/
-status ICM20948::init(std::shared_ptr<idf::I2CMaster> i2c, bool alt_address) {
-    this->addr = std::make_unique<idf::I2CAddress>(BASE_ADDRESS & alt_address);
-    this->i2c = i2c;
+//     return ret;
+// }
 
-    // check if device is available
-    try {
-      this->i2c->sync_read(*this->addr, 0); // send nothing
-                                            // should still recieve ACK
-    } catch (idf::I2CException& e) {
-      // something went wrong with the i2c communication
-      return STATUS_FAILED;
-    }
+// static void usr_delay_us(uint32_t period) {
+//     sleep_us(period);
+// }
 
-    // Setup user settings.
-    try {
-      // Do a full reset.
-      const std::vector<uint8_t> data {USER_CTRL, 0x00};
-      this->i2c->sync_write(*this->addr, data);
-    } catch (idf::I2CException& e) {
-      return STATUS_FAILED;
-    }
+// /**
+//  * Default constructor for ICM20948
+// */
+// ICM20948::ICM20948() {
+    
+// }
 
-    // Setup interrupts.
-    try {
-      // enable the raw data ready interrupt
-      const std::vector<uint8_t> data {INT_ENABLE + 3, 0x01};
-      this->i2c->sync_write(*this->addr, data);
-    } catch (idf::I2CException& e) {
-      return STATUS_FAILED;
-    }
+// /**
+//  * Take a reading from this device.
+//  * @return A vector of readings from this device of type imu_reading_t
+// */
+// std::vector<imu_reading_t> ICM20948::read() {
+//     std::vector<imu_reading_t> readings;
+//     curr_i2cbus = i2cbus;   // reassign static i2cbus variable to fool
+//                             // the horrible function pointer interface.
 
-    return STATUS_OK;
-}
+//     // API read structs
+//     icm20948_accel_t accel;
+//     icm20948_gyro_t gyro;
 
-#define SENS_START 0x2D // ACCEL_XOUT_H on datasheet
-#define SENS_LEN   14   // number of sensor registers
+//     // Call API read function
+//     icm20948_return_code_t ret = icm20948_getAccelData(&accel);
+//     if (ret != ICM20948_RET_OK) return readings;
+    
+//     ret = icm20948_getGyroData(&gyro);
+//     if (ret != ICM20948_RET_OK) return readings;
 
-void ICM20948::update() {
-    try {
-      const std::vector<uint8_t> data {SENS_START};
-      auto data_vec = this->i2c->sync_transfer(*this->addr, data, SENS_LEN);
+//     // Unpack the readings into an `imu_reading_t` struct
+//     imu_reading_t reading;
+//     reading.acc_x = accel.x;
+//     reading.acc_y = accel.y;
+//     reading.acc_z = accel.z;
+//     reading.gyr_x = gyro.x;
+//     reading.gyr_y = gyro.y;
+//     reading.gyr_z = gyro.z;
 
-      typedef union {
-        imu_reading_t r;
-        uint8_t d[sizeof(imu_reading_t)];
-      } imu_reading_ser_t;
+    
+//     return readings;
+// }
 
-      // convert byte stream to actual value
-      imu_reading_ser_t reading;
-      *reading.d = *data_vec.data(); 
-      measurements.push_back(reading.r);
-      
-      // i'm not sure how correct the above is. If the endian-ness matches and
-      // if the struct is packed correctly
-      // could easily change to the more direct assignment approach.
+// /**
+//  * Check if the device is working correctly.
+//  * 
+//  * Returns either STATUS_OK if normal, STATUS_MISBEHAVING if
+//  * accessible but readings out of range, or STATUS_FAILED otherwise.
+//  * 
+//  * @return status: device status
+// */
+// status ICM20948::checkOK() {
+//     // Placeholder
+//     return STATUS_OK;
+// }
 
-    } catch (idf::I2CException& e) {
-      this->alive = false;
-      return;
-    }
+// #define USER_CTRL 0x03
+// #define INT_ENABLE 0x10
 
-}
+// /**
+//  * Initialise the device.
+//  * 
+//  * Performs any setup required inc. calculating
+//  * magic numbers etc. - returns a STATUS the same way as checkOK. You can probably
+//  * just call checkOK at the end of this, but obviously there if you fail the setup steps
+//  * that's worth thinking about too.
+//  * 
+//  * @return status: device status
+// */
+// status ICM20948::init(bool alt_address) {
+//     if (alt_address) i2cbus = i2c1;
+//     else i2cbus = i2c0;
 
-// watchdog stuff
+//     curr_i2cbus = i2cbus;
+//     // Invoke API init function
+//     icm20948_return_code_t ret = icm20948_init(usr_read, usr_write, usr_delay_us);
+    
+//     // Configure the device
+//     if( ret == ICM20948_RET_OK ) {
+//         icm20948_settings_t settings;
+//         // Enable the Gyro
+//         settings.gyro.en = ICM20948_MOD_ENABLED;
+//         // Select the +-20000dps range
+//         settings.gyro.fs = ICM20948_GYRO_FS_SEL_2000DPS;
+//         // Enable the Accel
+//         settings.accel.en = ICM20948_MOD_ENABLED;
+//         // Select the +-2G range
+//         settings.accel.fs = ICM20948_ACCEL_FS_SEL_16G;
+//         ret = icm20948_applySettings(&settings);
+//     } else {
+//         return STATUS_FAILED;
+//     } 
 
-void ICM20948::stop()
-{
+//     return STATUS_OK;
+// }
 
-}
-
-void ICM20948::watchdog_task(void *parameters)
-{
-
-}
-
-void ICM20948::watchdog_callback(TimerHandle_t xtimer)
-{
-
-}

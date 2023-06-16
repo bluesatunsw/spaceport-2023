@@ -1,218 +1,115 @@
 // BME280.cpp
-// Implementation of BME280 barometer.
-// [name] [GitHub Username]
+// Implementation of BME280 barometer. Shamelessly stolen from the RP2040 examples
+// Matt Rossouw (omeh-a)
 // 05/2023
 
 #include "BME280.hpp"
-#include "i2c_cxx.hpp"
-// #include 
-#include <sys/_stdint.h>
-#include <sys/_stdint.h>
+
+void BME280::bme280_read_raw(int32_t* temp, int32_t* pressure) {
+    // bme280 data registers are auto-incrementing and we have 3 temperature and
+    // pressure registers each, so we start at 0xF7 and read 6 bytes to 0xFC
+    // note: normal mode does not require further ctrl_meas and config register writes
+
+    uint8_t buf[6];
+    uint8_t reg = REG_PRESSURE_MSB;
+    i2c_write_blocking(i2cbus, BME_I2C_ADDR, &reg, 1, true);  // true to keep master control of bus
+    i2c_read_blocking(i2cbus, BME_I2C_ADDR, buf, 6, false);  // false - finished with bus
+
+    // store the 20 bit read in a 32 bit signed integer for conversion
+    *pressure = (buf[0] << 12) | (buf[1] << 4) | (buf[2] >> 4);
+    *temp = (buf[3] << 12) | (buf[4] << 4) | (buf[5] >> 4);
+}
+
+void BME280::bme280_reset() {
+    // reset the device with the power-on-reset procedure
+    uint8_t buf[2] = { REG_RESET, 0xB6 };
+    i2c_write_blocking(i2cbus, BME_I2C_ADDR, buf, 2, false);
+}
+
+// intermediate function that calculates the fine resolution temperature
+// used for both pressure and temperature conversions
+int32_t BME280::bme280_convert(int32_t temp, struct bme280_calib_param* params) {
+    // use the 32-bit fixed point compensation implementation given in the
+    // datasheet
+    
+    int32_t var1, var2;
+    var1 = ((((temp >> 3) - ((int32_t)params->dig_t1 << 1))) * ((int32_t)params->dig_t2)) >> 11;
+    var2 = (((((temp >> 4) - ((int32_t)params->dig_t1)) * ((temp >> 4) - ((int32_t)params->dig_t1))) >> 12) * ((int32_t)params->dig_t3)) >> 14;
+    return var1 + var2;
+}
+
+int32_t BME280::bme280_convert_temp(int32_t temp, struct bme280_calib_param* params) {
+    // uses the bme280 calibration parameters to compensate the temperature value read from its registers
+    int32_t t_fine = bme280_convert(temp, params);
+    return (t_fine * 5 + 128) >> 8;
+}
+
+int32_t BME280::bme280_convert_pressure(int32_t pressure, int32_t temp, struct bme280_calib_param* params) {
+    // uses the bme280 calibration parameters to compensate the pressure value read from its registers
+
+    int32_t t_fine = bme280_convert(temp, params);
+
+    int32_t var1, var2;
+    uint32_t converted = 0.0;
+    var1 = (((int32_t)t_fine) >> 1) - (int32_t)64000;
+    var2 = (((var1 >> 2) * (var1 >> 2)) >> 11) * ((int32_t)params->dig_p6);
+    var2 += ((var1 * ((int32_t)params->dig_p5)) << 1);
+    var2 = (var2 >> 2) + (((int32_t)params->dig_p4) << 16);
+    var1 = (((params->dig_p3 * (((var1 >> 2) * (var1 >> 2)) >> 13)) >> 3) + ((((int32_t)params->dig_p2) * var1) >> 1)) >> 18;
+    var1 = ((((32768 + var1)) * ((int32_t)params->dig_p1)) >> 15);
+    if (var1 == 0) {
+        return 0;  // avoid exception caused by division by zero
+    }
+    converted = (((uint32_t)(((int32_t)1048576) - pressure) - (var2 >> 12))) * 3125;
+    if (converted < 0x80000000) {
+        converted = (converted << 1) / ((uint32_t)var1);
+    } else {
+        converted = (converted / (uint32_t)var1) * 2;
+    }
+    var1 = (((int32_t)params->dig_p9) * ((int32_t)(((converted >> 3) * (converted >> 3)) >> 13))) >> 12;
+    var2 = (((int32_t)(converted >> 2)) * ((int32_t)params->dig_p8)) >> 13;
+    converted = (uint32_t)((int32_t)converted + ((var1 + var2 + params->dig_p7) >> 4));
+    return converted;
+}
+
+status BME280::bme280_get_calib_params(struct bme280_calib_param* params) {
+    // raw temp and pressure values need to be calibrated according to
+    // parameters generated during the manufacturing of the sensor
+    // there are 3 temperature params, and 9 pressure params, each with a LSB
+    // and MSB register, so we read from 24 registers
+
+    uint8_t buf[NUM_CALIB_PARAMS] = { 0 };
+    uint8_t reg = REG_DIG_T1_LSB;
+    int err = i2c_write_blocking(i2cbus, BME_I2C_ADDR, &reg, 1, true);  // true to keep master control of bus
+    if (err == PICO_ERROR_GENERIC) {
+        return STATUS_FAILED;
+    }
+    
+    // read in one go as register addresses auto-increment
+    err = i2c_read_blocking(i2cbus, BME_I2C_ADDR, buf, NUM_CALIB_PARAMS, false);  // false, we're done reading
+    if (err == PICO_ERROR_GENERIC) {
+        return STATUS_FAILED;
+    }
+    // store these in a struct for later use
+    params->dig_t1 = (uint16_t)(buf[1] << 8) | buf[0];
+    params->dig_t2 = (int16_t)(buf[3] << 8) | buf[2];
+    params->dig_t3 = (int16_t)(buf[5] << 8) | buf[4];
+
+    params->dig_p1 = (uint16_t)(buf[7] << 8) | buf[6];
+    params->dig_p2 = (int16_t)(buf[9] << 8) | buf[8];
+    params->dig_p3 = (int16_t)(buf[11] << 8) | buf[10];
+    params->dig_p4 = (int16_t)(buf[13] << 8) | buf[12];
+    params->dig_p5 = (int16_t)(buf[15] << 8) | buf[14];
+    params->dig_p6 = (int16_t)(buf[17] << 8) | buf[16];
+    params->dig_p7 = (int16_t)(buf[19] << 8) | buf[18];
+    params->dig_p8 = (int16_t)(buf[21] << 8) | buf[20];
+    params->dig_p9 = (int16_t)(buf[23] << 8) | buf[22];
+}
 
 
 BME280::BME280() {
-    // start at 0;
-    _i2c_address = 0;
-    _t_fine = 0;
-    _temperature = 0;
-    _pressure = 0;
-    _humidity = 0;
-    clearCalibrationData();
+    // constructor
 
-}
-
-
-
-// clears data
-void BME280::clearCalibrationData(void)
-{
-    // set everything to 0 >:(
-    _dig_T1 = 0;
-    _dig_T2 = 0;
-    _dig_T3 = 0;
-    _dig_P1 = 0;
-    _dig_P2 = 0;
-    _dig_P3 = 0;
-    _dig_P4 = 0;
-    _dig_P5 = 0;
-    _dig_P6 = 0;
-    _dig_P7 = 0;
-    _dig_P8 = 0;
-    _dig_P9 = 0;
-    _dig_H1 = 0;
-    _dig_H2 = 0;
-    _dig_H3 = 0;
-    _dig_H4 = 0;
-    _dig_H5 = 0;
-    _dig_H6 = 0;
-}
-
-/* begin takes in i2c address */
-uint8_t BME280::begin(uint8_t i2cAddress) {
-    _i2c_address = i2cAddress;
-    if (readId()== BME280_ID) {
-        clearCalibrationData();
-        // will need to read data 
-        // 
-        return 0;
-    }
-    return (uint8_t)-1;
-}
-
-/*
-    busWrite determines which interface to write to and chooses between I2C communication or spi
-    communication.
-    This function takes in 3 arguments which include p_data which is a pointer to the data array, 
-    data size which is the size of the array and a flag repeated_start which indicates whether a 
-    repeated start condition is used. *NOTE* A 'repeated start' is basically a continuing conversation
-    to get multiple readings :)
-*/
-void BME280::busWrite(uint8_t *p_data, uint8_t data_size, uint8_t repeated_start) 
-{
-    if (_i2c_address == BME280_I2C_ADDRESS1 || _i2c_address == BME280_I2C_ADDRESS2) {
-        // yay! i2c worked :) 
-        i2cWrite(_i2c_address, p_data, data_size, repeated_start); 
-    } else {
-        // most likely wont use as we focus on SPI
-        //This operation clears the most significant bit (MSB) of the first element
-        p_data[0] &= 0x7f;
-        spiWrite(p_data, data_size); 
-    }
-}
-/*
-    Similar to busWrite however it reads to the chosen communication.
-    :)
-*/
-void BME280::busRead(uint8_t *p_data, uint8_t data_size) 
-{
-    if (_i2c_address == BME280_I2C_ADDRESS1 || _i2c_address == BME280_I2C_ADDRESS2) {
-        // yay! i2c worked :) 
-        i2cRead(_i2c_address, p_data, data_size);
-    } else {
-        // most likely wont use as we focus on SPI
-        //This operation clears the most significant bit (MSB) of the first element
-        p_data[0] &= 0x80;
-        spiRead(p_data, data_size); 
-    }
-}
-
-// uint8_t
-
-/* read ID returns the Register */
-uint8_t BME280::readId(void)
-{
-    return readUint8(BME280_ID_REGISTER);
-}
-
-// reading unsign ints helpers -------------------
-/*
-    These functions are for convenience  and helps in
-    reading specific registers :)
-*/
-/*  This function takes in register address.
-*/
-uint8_t BME280::readUint8(uint8_t reg)
-{
-  uint8_t data;
-  busWrite(&reg,1,1); // Use repeated start.
-  busRead(&data,1); // Read one byte.
-  return data;
-}
-
-
-uint16_t BME280::readUint16(uint8_t reg)
-{
-  uint8_t data[2];
-  uint16_t value;
-  busWrite(&reg,1,1); // Use repeated start.
-  busRead(data,2); // Read two bytes.
-  // Process as little endian, which is the case for calibration data.
-  value = data[1];
-  value = (value<<8) | data[0];
-  return value;
-}
-
-// -----------------------------------------------
-
-/**
-* Prints everything out from the readings
-* For debugging purposes
-*/
-void printReadings(const std::vector<baro_reading_t>& readings) {
-   for (const auto& reading : readings) {
-       printf("Temperature: %d °C\n", reading.temp);
-       printf("Pressure: %d \n", reading.pressure);
-       printf("Humidity: %d \n", reading.humidity);  
-   }
-}
-
-
-/**
- * Take a reading from this device.
- * @return A vector of readings from this device of type [TYPE]
-*/
-std::vector<baro_reading_t> BME280::read() {
-    // Placeholder
-    // std::vector<baro_reading_t> readings = std::vector<baro_reading_t>({0});
-    // return readings;
-
-    // making the vector
-    std::vector<baro_reading_t> readings;
-    // reading type
-    baro_reading_t reading;
-    // want to loop to grab the data of readings
-    for (;;) {
-        // populating the reading vector
-        reading.temp = BME280_TEMPERATURE;
-        reading.humidity = BME280_HUMIDITY;
-        reading.pressure = BME280_PRESSURE;
-        // shoving stuff into vector :)
-        readings.push_back(reading);
-    }
-    return readings;
-
-}
-
-/**
- * Check if the device is working correctly.
- * 
- * Returns either STATUS_OK if normal, STATUS_MISBEHAVING if
- * accessible but readings out of range, or STATUS_FAILED otherwise.
- * 
- * @return status: device status
-*/
-status BME280::checkOK() {
-    // creating a chip ID
-    uint16_t chip_ID = 0;
-    //FIXME: temporary value assigned to CHIP_ID
-    // chip_ID = 1;
-
-    // want to check if the BME280 chip is present
-    // i2cRead(BME280_I2C_ADDRESS1, BME280_ID, &chip_ID, 1);
-    // 
-    // use esp_err_t i2c_master_write_read_device(i2c_port_t i2c_num, uint8_t device_address, const uint8_t *write_buffer, size_t write_size, uint8_t *read_buffer, size_t read_size, TickType_t ticks_to_wait) 
-    auto buf = std::vector<uint8_t>();
-    idf::I2CCommandLink cmd;
-    cmd.start();
-    cmd.write_byte(BME280_ID_REGISTER);
-    cmd.read(buf);
-    cmd.execute_transfer(idf::I2CNumber::I2C0(), std::chrono::milliseconds::max() );
-
-   
-    /**
-     * uint8_t wbuf[1] = BME_ID_REGISTER;
-     * uint8_t result[1] = {0};
-     * i2c_master_write_read_device([i2c_struct]), 0, BME280_I2C_ADDRESS1, wbuf, 1, result, 1, 300);
-     * 
-     * 
-    */
-    // if chip is not present
-    if (chip_ID != BME280_ID ) {
-        // not found the bme280 chip :(
-        return STATUS_FAILED;
-    }
-
-    return STATUS_OK;    
 }
 
 /**
@@ -225,25 +122,78 @@ status BME280::checkOK() {
  * 
  * @return status: device status
 */
-status BME280::init(idf::I2CMaster i2c) {
-    // Placeholder
+status BME280::init(bool i2c_bus) {
+    // use the "handheld device dynamic" optimal setting (see datasheet)
+    uint8_t buf[2];
+
+    // Set bus
+    if (i2c_bus) i2cbus = i2c1;
+    else i2cbus = i2c0;
+
+    // 500ms sampling time, x16 filter
+    const uint8_t reg_config_val = ((0x04 << 5) | (0x05 << 2)) & 0xFC;
+
+    // send register number followed by its corresponding value
+    buf[0] = REG_CONFIG;
+    buf[1] = reg_config_val;
+    printf("pomodorino");
+    int err = i2c_write_blocking(i2c0, BME_I2C_ADDR, buf, 2, false);
+    if (err == PICO_ERROR_GENERIC) {
+        return STATUS_FAILED;
+    }
+    printf("angelhair");
+
+    // osrs_t x1, osrs_p x4, normal mode operation
+    const uint8_t reg_ctrl_meas_val = (0x01 << 5) | (0x03 << 2) | (0x03);
+    buf[0] = REG_CTRL_MEAS;
+    buf[1] = reg_ctrl_meas_val;
+    err = i2c_write_blocking(i2c0, BME_I2C_ADDR, buf, 2, false);
+    if (err == PICO_ERROR_GENERIC) {
+        return STATUS_FAILED;
+    }
+
+    // Generate calibration parameters
+    bme280_get_calib_params(&_calib_params);
     
     return STATUS_OK;
 }
 
+std::vector<baro_reading_t> BME280::read() {
+    auto readings = std::vector<baro_reading_t>();
+    
+    // Perform raw reads
+    int32_t raw_temperature;
+    int32_t raw_pressure;
+    bme280_read_raw(&raw_temperature, &raw_pressure);
+    if (raw_temperature == 0 || raw_pressure == 0) {
+        return readings;
+    }
+    int32_t comp_temp = bme280_convert_temp(raw_temperature, &_calib_params);
+    int32_t comp_pressure = bme280_convert_pressure(raw_pressure, raw_temperature, &_calib_params);
 
+    // Insert readings into vector
+    baro_reading_t reading;
+    reading.temp = comp_temp;
+    reading.pressure = comp_pressure;
+    readings.push_back(reading);
 
-void BME280::stop()
-{
-
+    return readings;
 }
 
-void BME280::watchdog_task(void *parameters)
-{
+status BME280::checkOK() {
+    // Try read from WHOAMI register
+    uint8_t reg = REG_WHOAMI;
+    uint8_t response[1] = {0};
 
-}
+    int err = i2c_write_blocking(i2cbus, BME_I2C_ADDR, &reg, 1, true);  // true to keep master control of bus
+    if (err == PICO_ERROR_GENERIC) {
+        return STATUS_FAILED;
+    }
 
-void BME280::watchdog_callback(TimerHandle_t xtimer)
-{
-
+    err = i2c_read_blocking(i2cbus, BME_I2C_ADDR, response, 1, false);  // false, we're done reading
+    if (err == PICO_ERROR_GENERIC) {
+        return STATUS_FAILED;
+    }
+    printf("Read from WHOAMI: %d\n", response[0]);
+    return STATUS_OK;
 }
